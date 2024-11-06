@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:collapsible_sidebar/collapsible_sidebar.dart';
+import 'package:p_a_jewerly/screens/screens.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -50,28 +51,21 @@ class _HomeScreenState extends State<HomeScreen> {
         text: 'Inventory',
         icon: Icons.list_alt_sharp,
         onPressed: () => setState((){
-                _currentWidget = Center(child:Text('Inventory'));
+                _currentWidget = InventoryMainScreen();
               }),
         subItems: [
           CollapsibleItem(
             text: 'Movements', 
             icon: Icons.directions,
             onPressed: () => setState(() {
-              
-            }),
-          ),
-          CollapsibleItem(
-            text: 'Add movement', 
-            icon: Icons.add,
-            onPressed: () => setState(() {
-              
+              _currentWidget = InvetoryMovementsScreen();
             }),
           ),
           CollapsibleItem(
             text: 'Physical count', 
             icon: Icons.list_rounded,
             onPressed: () => setState(() {
-              
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const PhysicalCountMainScreen()));
             }),
           ),
         ]
@@ -110,14 +104,14 @@ class _HomeScreenState extends State<HomeScreen> {
         text: 'Customers',
         icon: Icons.person_2,
         onPressed: () => setState((){
-                _currentWidget = Center(child:Text('Customers'));
+                _currentWidget = CustomerMainScreen();
               }),
         subItems: [
           CollapsibleItem(
             text: 'Payments', 
             icon: Icons.money_sharp,
             onPressed: () => setState(() {
-              
+              _currentWidget = CustomerPaymentsScreen();
             }),
           ),
         ]
@@ -126,7 +120,7 @@ class _HomeScreenState extends State<HomeScreen> {
         text: 'Products',
         icon: Icons.article,
         onPressed: () => setState((){
-                _currentWidget = Center(child:Text('Products'));
+                _currentWidget = ProductsMainScreen();
               }),
       ),
       CollapsibleItem(
@@ -155,9 +149,10 @@ class _HomeScreenState extends State<HomeScreen> {
         
           },
           body: _body(size, context),
-          backgroundColor: Colors.black,
+          backgroundColor: Colors.black12,
           selectedTextColor: Colors.blueAccent,
-          textStyle: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+          unselectedTextColor: Colors.black26,
+          textStyle: TextStyle(fontSize: 12, fontStyle: FontStyle.italic ),
           titleStyle: const TextStyle(
               fontSize: 15,
               fontStyle: FontStyle.italic,
