@@ -58,7 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
             text: 'Movements', 
             icon: Icons.directions,
             onPressed: () => setState(() {
-              _currentWidget = InvetoryMovementsScreen();
+              _currentWidget = InventoryMovementsScreen();
             }),
           ),
           CollapsibleItem(

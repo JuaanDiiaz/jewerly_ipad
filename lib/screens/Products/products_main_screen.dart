@@ -90,8 +90,8 @@ class CreateProduct extends StatefulWidget {
 class _CreateProductState extends State<CreateProduct> {
   final _scrollcontroller = ScrollController();
   List<String> categories = [
-    'Technology', 'Health', 'Education', 'Business', 'Sports', 'Music', 'Fashion',
-    'Travel', 'Food', 'Entertainment', 'Science', 'Politics', 'Lifestyle'
+    'red gold', 'white gold', 'yellow gold', '22"', '10"', '5"', '2"',
+    '22k', '14k',
   ];
 
   Set<String> selectedCategories = {};
