@@ -1,3 +1,4 @@
+export 'package:p_a_jewerly/screens/Sales/sale_screen.dart';
 export 'package:p_a_jewerly/screens/Products/products_main_screen.dart';
 export 'package:p_a_jewerly/screens/Customers/customer_payments_screen.dart';
 export 'package:p_a_jewerly/screens/Inventory/Physical%20Count/physical_count_main_screen.dart';

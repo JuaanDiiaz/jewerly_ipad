@@ -9,8 +9,6 @@ class CustomerMainScreen extends StatefulWidget {
 }
 
 class _CustomerMainScreenState extends State<CustomerMainScreen> {
-  
-
   @override
   void initState() {
     super.initState();
@@ -22,30 +20,27 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
     return BottomBarScreen(
       body: SingleChildScrollView(
         child: Column(
-            children: [
-              CustomerHeader(),
-              Container(
-                height: size.height * 0.7,
-                child: ListView.builder(
-                  itemCount: 20,
-                  itemBuilder: (_,index){
-                    return _CustomerItem(index: index,);
-                  }
-                ),
+          children: [
+            CustomerHeader(),
+            Container(
+              height: size.height * 0.7,
+              child: ListView.builder(
+                itemCount: 20,
+                itemBuilder: (_, index) {
+                  return _CustomerItem(index: index);
+                },
               ),
-              
-            ],
-          ),
+            ),
+          ],
         ),
-        actionWidget: CreateUser()
-      );
+      ),
+      actionWidget: CreateUser(),
+    );
   }
 }
 
 class _CustomerItem extends StatelessWidget {
-  const _CustomerItem({
-    super.key, required this.index,
-  });
+  const _CustomerItem({super.key, required this.index});
   final int index;
 
   @override
@@ -53,66 +48,67 @@ class _CustomerItem extends StatelessWidget {
     return Dismissible(
       key: UniqueKey(),
       crossAxisEndOffset: 0.2,
-      onDismissed: (direction) {
-        
-      },
+      onDismissed: (direction) {},
       background: Container(
         margin: EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: Colors.green, 
+          color: Colors.green,
           borderRadius: BorderRadius.circular(10),
-          ),
+        ),
         child: const Row(
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            SizedBox(width: 20,),
-            Icon(
-              Icons.add,
-              color: Colors.white
-            )
+            SizedBox(width: 20),
+            Icon(Icons.add, color: Colors.white),
           ],
         ),
       ),
       secondaryBackground: Container(
         margin: EdgeInsets.all(10),
-        decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(10)),
+        decoration: BoxDecoration(
+          color: Colors.red,
+          borderRadius: BorderRadius.circular(10),
+        ),
         child: const Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            SizedBox(width: 20,),
-            Icon(
-              Icons.delete,
-              color: Colors.white
-            )
+            SizedBox(width: 20),
+            Icon(Icons.delete, color: Colors.white),
           ],
         ),
       ),
-      child: Container(
+      child: Card(
         margin: EdgeInsets.all(10),
-        padding: EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: Colors.black12,
-          borderRadius: BorderRadius.circular(10)
+        elevation: 5,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            CircleAvatar(
-              backgroundColor: Colors.amberAccent,
-              radius: 20,
-              child: Text(index.toString()),
-            ),
-            SizedBox(width: 20,),
-            Column(
-              children: [
-                Text('Name: Juanit$index de costa btava cortes'),
-                SizedBox(width: 20,),
-                Text('Phone: 5532499504'),
-                SizedBox(width: 20,),
-                Text('Email: $index@gmail.com')
-              ],
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.all(15.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                backgroundColor: Colors.amberAccent,
+                radius: 20,
+                child: Text(index.toString()),
+              ),
+              SizedBox(width: 20),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Name: Juanit$index de costa btava cortes',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 10),
+                  Text('Phone: 5532499504'),
+                  SizedBox(height: 10),
+                  Text('Email: $index@gmail.com'),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -132,14 +128,25 @@ class CustomerHeader extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         boxShadow: const [
           BoxShadow(
-            color: Colors.black,
-            blurRadius: BorderSide.strokeAlignCenter
-          )
-        ]
+            color: Colors.black26,
+            blurRadius: 10,
+            offset: Offset(0, 5),
+          ),
+        ],
       ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-
+          Icon(Icons.person, size: 40, color: Colors.white),
+          SizedBox(width: 10),
+          Text(
+            'Customer Header',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
         ],
       ),
     );
@@ -154,17 +161,19 @@ class CreateUser extends StatelessWidget {
     return Container(
       width: double.infinity,
       child: Column(
-        children:[
+        children: [
           _MinSpace(),
-          Text('Add a new customer'),
+          Text(
+            'Add a new customer',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          _MinSpace(),
           _NewCustomerForm(),
           _MinSpace(),
           OutlinedButton(
-            onPressed: (){
-
-          }, 
-          child: Text('Save')
-        )
+            onPressed: () {},
+            child: Text('Save'),
+          ),
         ],
       ),
     );
@@ -172,9 +181,7 @@ class CreateUser extends StatelessWidget {
 }
 
 class _NewCustomerForm extends StatelessWidget {
-  const _NewCustomerForm({
-    super.key,
-  });
+  const _NewCustomerForm({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -182,22 +189,20 @@ class _NewCustomerForm extends StatelessWidget {
       child: Form(
         child: Column(
           children: [
-            _CustomerInput(label: 'name'),
+            _CustomerInput(label: 'Name'),
             const _MinSpace(),
-            _CustomerInput(label: 'email'),
+            _CustomerInput(label: 'Email'),
             const _MinSpace(),
-            _CustomerInput(label: 'phone')
+            _CustomerInput(label: 'Phone'),
           ],
-        )
+        ),
       ),
     );
   }
 }
 
 class _MinSpace extends StatelessWidget {
-  const _MinSpace({
-    super.key,
-  });
+  const _MinSpace({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -208,11 +213,8 @@ class _MinSpace extends StatelessWidget {
 }
 
 class _CustomerInput extends StatelessWidget {
-  const _CustomerInput({
-    super.key, required this.label,
-  });
+  const _CustomerInput({super.key, required this.label});
   final String label;
-
 
   @override
   Widget build(BuildContext context) {
@@ -221,6 +223,7 @@ class _CustomerInput extends StatelessWidget {
       keyboardType: TextInputType.text,
       decoration: InputDecoration(
         labelText: label,
+        border: OutlineInputBorder(),
       ),
     );
   }
