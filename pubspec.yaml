@@ -41,6 +41,7 @@ dependencies:
   card_swiper: ^3.0.1
   flutter_3d_controller: ^2.0.2
   fluttertoast: ^8.0.8
+  http: ^1.5.0
 
 dev_dependencies:
   flutter_test:
