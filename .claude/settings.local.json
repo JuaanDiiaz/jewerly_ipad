@@ -1,7 +1,19 @@
 {
   "permissions": {
     "allow": [
-      "Bash(flutter analyze:*)"
+      "Bash(flutter analyze:*)",
+      "Bash(C:\\\\Program Files\\\\MySQL\\\\MySQL Server 8.0\\\\bin\\\\mysql.exe:*)",
+      "Bash(curl -s http://localhost:5259/api/Product)",
+      "Bash(curl -s http://localhost:5259/api/Customer)",
+      "Bash(curl -s http://localhost:5259/api/Category)",
+      "Bash(curl -s http://localhost:5259/api/Warehouse)",
+      "Bash(curl -s http://localhost:5259/api/PriceList)",
+      "Bash(curl -s http://localhost:5259/api/Inventory)",
+      "Bash(curl -s http://localhost:5259/api/PaymentMethod)",
+      "Bash(curl -s http://localhost:5259/api/Supplier)",
+      "Bash(curl -s http://localhost:5259/api/PurchaseOrderHeader)",
+      "Bash(curl -s http://localhost:5259/api/SalesOrderHeader)",
+      "Bash(flutter run:*)"
     ]
   }
 }

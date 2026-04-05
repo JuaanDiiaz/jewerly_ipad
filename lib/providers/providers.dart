@@ -8,6 +8,7 @@ export 'category_provider.dart';
 export 'payment_method_provider.dart';
 export 'supplier_provider.dart';
 export 'supplier_product_provider.dart';
+export 'price_list_provider.dart';
 export 'price_list_detail_provider.dart';
 export 'sales_tax_provider.dart';
 export 'customer_payment_provider.dart';

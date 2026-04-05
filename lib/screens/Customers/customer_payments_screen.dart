@@ -70,13 +70,13 @@ class _CustomerPaymentsScreenState extends State<CustomerPaymentsScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<int>(
-                value: _selectedCustomerId,
+                initialValue: _selectedCustomerId,
                 decoration: const InputDecoration(
                   labelText: 'Customer',
                   border: OutlineInputBorder(),
                 ),
                 items: customers.map((c) {
-                  return DropdownMenuItem(value: c.id, child: Text(c.name ?? 'Customer ${c.id}'));
+                  return DropdownMenuItem(value: c.id, child: Text(c.name));
                 }).toList(),
                 onChanged: (value) => _selectedCustomerId = value,
                 validator: (value) => value == null ? 'Required' : null,
