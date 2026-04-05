@@ -41,6 +41,9 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
+
     return Consumer<CustomerProvider>(
       builder: (context, customerProvider, _) {
         return Stack(
@@ -50,7 +53,9 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                 children: [
                   CustomerHeader(),
                   SizedBox(
-                    height: MediaQuery.of(context).size.height * 0.7,
+                    height: isPortrait
+                        ? screenHeight * 0.55
+                        : screenHeight * 0.7,
                     child: customerProvider.isLoading && customerProvider.customers.isEmpty
                         ? const Center(child: CircularProgressIndicator())
                         : customerProvider.error != null
@@ -83,6 +88,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                 emailController: _emailController,
                 phoneController: _phoneController,
                 onClear: _clearForm,
+                isPortrait: isPortrait,
               ),
             ),
           ],
@@ -234,6 +240,7 @@ class CreateUser extends StatefulWidget {
   final TextEditingController emailController;
   final TextEditingController phoneController;
   final VoidCallback onClear;
+  final bool isPortrait;
 
   const CreateUser({
     super.key,
@@ -242,6 +249,7 @@ class CreateUser extends StatefulWidget {
     required this.emailController,
     required this.phoneController,
     required this.onClear,
+    required this.isPortrait,
   });
 
   @override
@@ -284,9 +292,11 @@ class _CreateUserState extends State<CreateUser> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(screenWidth > 800 ? 20 : 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -308,65 +318,23 @@ class _CreateUserState extends State<CreateUser> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 15),
-            TextFormField(
-              controller: widget.nameController,
-              autocorrect: false,
-              keyboardType: TextInputType.text,
-              decoration: const InputDecoration(
-                labelText: 'Name',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.person),
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Name is required';
-                }
-                if (value.trim().length < 2) {
-                  return 'Name must be at least 2 characters';
-                }
-                return null;
-              },
-            ),
+            if (widget.isPortrait && screenWidth > 600)
+              // Landscape-style layout in portrait for wider iPads
+              Row(
+                children: [
+                  Expanded(child: _buildNameField()),
+                  const SizedBox(width: 10),
+                  Expanded(child: _buildEmailField()),
+                ],
+              )
+            else
+              _buildNameField(),
+            if (!widget.isPortrait || screenWidth <= 600) ...[
+              const SizedBox(height: 15),
+              _buildEmailField(),
+            ],
             const SizedBox(height: 15),
-            TextFormField(
-              controller: widget.emailController,
-              autocorrect: false,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.email),
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Email is required';
-                }
-                if (!_validateEmail(value.trim())) {
-                  return 'Please enter a valid email';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 15),
-            TextFormField(
-              controller: widget.phoneController,
-              autocorrect: false,
-              keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(
-                labelText: 'Phone',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.phone),
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Phone is required';
-                }
-                if (!_validatePhone(value.trim())) {
-                  return 'Please enter a valid phone number (8-15 digits)';
-                }
-                return null;
-              },
-            ),
+            _buildPhoneField(),
             const SizedBox(height: 15),
             Consumer<CustomerProvider>(
               builder: (context, provider, _) {
@@ -388,6 +356,72 @@ class _CreateUserState extends State<CreateUser> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildNameField() {
+    return TextFormField(
+      controller: widget.nameController,
+      autocorrect: false,
+      keyboardType: TextInputType.text,
+      decoration: const InputDecoration(
+        labelText: 'Name',
+        border: OutlineInputBorder(),
+        prefixIcon: Icon(Icons.person),
+      ),
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return 'Name is required';
+        }
+        if (value.trim().length < 2) {
+          return 'Name must be at least 2 characters';
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildEmailField() {
+    return TextFormField(
+      controller: widget.emailController,
+      autocorrect: false,
+      keyboardType: TextInputType.emailAddress,
+      decoration: const InputDecoration(
+        labelText: 'Email',
+        border: OutlineInputBorder(),
+        prefixIcon: Icon(Icons.email),
+      ),
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return 'Email is required';
+        }
+        if (!_validateEmail(value.trim())) {
+          return 'Please enter a valid email';
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildPhoneField() {
+    return TextFormField(
+      controller: widget.phoneController,
+      autocorrect: false,
+      keyboardType: TextInputType.phone,
+      decoration: const InputDecoration(
+        labelText: 'Phone',
+        border: OutlineInputBorder(),
+        prefixIcon: Icon(Icons.phone),
+      ),
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return 'Phone is required';
+        }
+        if (!_validatePhone(value.trim())) {
+          return 'Please enter a valid phone number (8-15 digits)';
+        }
+        return null;
+      },
     );
   }
 }

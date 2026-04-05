@@ -2,8 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:provider/provider.dart';
 import 'package:p_a_jewerly/providers/sales_provider.dart';
-import 'package:p_a_jewerly/providers/product_provider.dart';
 import 'package:p_a_jewerly/providers/customer_provider.dart';
+import 'package:p_a_jewerly/providers/product_provider.dart';
+import 'package:p_a_jewerly/providers/inventory_provider.dart';
+import 'package:p_a_jewerly/providers/price_list_provider.dart';
+import 'package:p_a_jewerly/providers/price_list_detail_provider.dart';
+import 'package:p_a_jewerly/models/inventory_model.dart';
+import 'package:p_a_jewerly/models/price_list_model.dart';
+import 'package:p_a_jewerly/models/price_list_detail_model.dart';
 import 'package:p_a_jewerly/widgets/loading_overlay.dart';
 
 class SaleScreen extends StatefulWidget {
@@ -14,42 +20,199 @@ class SaleScreen extends StatefulWidget {
 }
 
 class _SaleScreenState extends State<SaleScreen> {
-  final List<Map<String, dynamic>> _products = [
-    {'id': 1, 'name': 'Gold Necklace', 'image': 'assets/gold_necklace.jpeg', 'quantity': 10, 'price': 299.99},
-    {'id': 2, 'name': 'Diamond Ring', 'image': 'assets/diamond_ring.jpg', 'quantity': 5, 'price': 599.99},
-    {'id': 3, 'name': 'Gold Earrings', 'image': 'assets/gold_earrings.jpeg', 'quantity': 8, 'price': 199.99},
-    {'id': 4, 'name': 'Gold Watch', 'image': 'assets/gold_watch.jpg', 'quantity': 3, 'price': 449.99},
-    {'id': 5, 'name': 'Diamond Necklace', 'image': 'assets/diamond_necklace.webp', 'quantity': 7, 'price': 899.99},
-    {'id': 6, 'name': 'Gold Bracelet', 'image': 'assets/gold_bracelet.webp', 'quantity': 6, 'price': 249.99},
-    {'id': 7, 'name': 'Diamond Bracelet', 'image': 'assets/diamond_bracelet.jpg', 'quantity': 4, 'price': 699.99},
-    {'id': 8, 'name': 'Diamond Earrings', 'image': 'assets/diamond_earrings.jpeg', 'quantity': 9, 'price': 399.99},
-  ];
-
   final _salespersonController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ProductProvider>().fetchProducts();
+      context.read<CustomerProvider>().fetchCustomers();
+      context.read<InventoryProvider>().fetchInventory();
+      context.read<PriceListProvider>().fetchPriceLists();
+      context.read<PriceListDetailProvider>().fetchPriceListDetails();
+    });
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text.toLowerCase();
+      });
+    });
+  }
 
   @override
   void dispose() {
     _salespersonController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
-  void _addToCart(Map<String, dynamic> product) {
+  void _addToCart(dynamic product, double price) {
     context.read<SalesProvider>().addToCart(CartItem(
-      productId: product['id'],
-      productName: product['name'],
+      productId: product.id,
+      productName: product.description ?? 'Product ${product.id}',
       quantity: 1,
-      unitPrice: product['price'],
-      imageUrl: product['image'],
+      unitPrice: price,
     ));
 
     Fluttertoast.showToast(
-      msg: "${product['name']} added to cart",
+      msg: "${product.description ?? 'Product'} added to cart",
       toastLength: Toast.LENGTH_SHORT,
       gravity: ToastGravity.BOTTOM,
       backgroundColor: Colors.green,
       textColor: Colors.white,
       fontSize: 16.0,
+    );
+  }
+
+  void _showProductDetails(dynamic product, InventoryModel? inventory) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.5,
+        maxChildSize: 0.8,
+        builder: (context, scrollController) => SingleChildScrollView(
+          controller: scrollController,
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Product Details',
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Container(
+                  width: double.infinity,
+                  height: 200,
+                  decoration: BoxDecoration(
+                    color: Colors.amber[100],
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Center(
+                    child: Icon(
+                      Icons.shopping_bag,
+                      size: 80,
+                      color: Colors.amber[800],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                _buildDetailRow('ID', '#${product.id}'),
+                _buildDetailRow('Description', product.description ?? 'N/A'),
+                _buildDetailRow(
+                  'Weight',
+                  inventory?.weight != null ? '${inventory!.weight} g' : 'Not specified',
+                ),
+                _buildDetailRow(
+                  'Location',
+                  inventory?.location ?? 'Not specified',
+                ),
+                _buildDetailRow(
+                  'Warehouse',
+                  inventory?.warehouseId != null ? 'WH #${inventory!.warehouseId}' : 'Not assigned',
+                ),
+                const SizedBox(height: 24),
+                Consumer2<PriceListProvider, PriceListDetailProvider>(
+                  builder: (context, priceListProvider, priceDetailProvider, _) {
+                    final productPrices = priceDetailProvider.priceListDetails
+                        .where((d) => d.productId == product.id)
+                        .toList();
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (productPrices.isEmpty)
+                          const Text(
+                            'No prices available for this product',
+                            style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+                          )
+                        else
+                          ...productPrices.map((priceDetail) {
+                            final priceList = priceListProvider.priceLists
+                                .firstWhere((pl) => pl.id == priceDetail.priceListId, orElse: () => PriceListModel(id: 0, description: 'Unknown'));
+                            return Card(
+                              child: ListTile(
+                                title: Text(
+                                  '\$${priceDetail.price?.toStringAsFixed(2) ?? "N/A"}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                                ),
+                                subtitle: Text(priceList.description),
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.add_shopping_cart, color: Colors.green),
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                    _addToCart(product, (priceDetail.price ?? 0).toDouble());
+                                  },
+                                ),
+                              ),
+                            );
+                          }),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _addToCart(product, 0.0);
+                    },
+                    icon: const Icon(Icons.add_shopping_cart),
+                    label: const Text('Add to Cart (Default Price)', style: TextStyle(fontSize: 16)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.w500),
+          ),
+          Flexible(
+            child: Text(
+              value,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+              textAlign: TextAlign.right,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -228,33 +391,151 @@ class _SaleScreenState extends State<SaleScreen> {
     }
   }
 
+  List<dynamic> _filterProducts(List<dynamic> products) {
+    if (_searchQuery.isEmpty) return products;
+    return products.where((product) {
+      final description = (product.description ?? '').toLowerCase();
+      final id = product.id.toString();
+      return description.contains(_searchQuery) || id.contains(_searchQuery);
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
+
+    int crossAxisCount;
+    if (screenWidth > 1000) {
+      crossAxisCount = 4;
+    } else if (screenWidth > 600) {
+      crossAxisCount = 3;
+    } else {
+      crossAxisCount = 2;
+    }
+
     return Form(
       key: _formKey,
       child: Scaffold(
         body: Column(
           children: [
-            Expanded(
-              child: GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                  childAspectRatio: 0.75,
+            // Search bar
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search by product name or ID...',
+                  prefixIcon: const Icon(Icons.search, color: Colors.amber),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            _searchController.clear();
+                          },
+                        )
+                      : null,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey[100],
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 ),
-                itemCount: _products.length,
-                itemBuilder: (context, index) {
-                  final product = _products[index];
-                  return _AnimatedItemCard(
-                    product: product,
-                    onAddToCart: () => _addToCart(product),
+              ),
+            ),
+            Expanded(
+              child: Consumer3<ProductProvider, InventoryProvider, PriceListDetailProvider>(
+                builder: (context, productProvider, inventoryProvider, priceDetailProvider, _) {
+                  if (productProvider.isLoading && productProvider.products.isEmpty) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (productProvider.error != null) {
+                    return AppErrorWidget(
+                      message: productProvider.error!,
+                      onRetry: () => productProvider.fetchProducts(),
+                    );
+                  }
+                  if (productProvider.products.isEmpty) {
+                    return const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey),
+                          SizedBox(height: 16),
+                          Text(
+                            'No products available',
+                            style: TextStyle(fontSize: 18, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  final filteredProducts = _filterProducts(productProvider.products);
+                  final inventoryMap = <int, InventoryModel>{};
+                  for (final inv in inventoryProvider.inventory) {
+                    if (inv.productId != null) {
+                      inventoryMap[inv.productId!] = inv;
+                    }
+                  }
+
+                  final priceDetails = priceDetailProvider.priceListDetails;
+
+                  if (filteredProducts.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No products found for "$_searchQuery"',
+                            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return GridView.builder(
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: crossAxisCount,
+                      crossAxisSpacing: screenWidth > 800 ? 16 : 10,
+                      mainAxisSpacing: screenWidth > 800 ? 16 : 10,
+                      childAspectRatio: isPortrait ? 0.7 : 0.85,
+                    ),
+                    itemCount: filteredProducts.length,
+                    itemBuilder: (context, index) {
+                      final product = filteredProducts[index];
+                      final inventory = inventoryMap[product.id];
+                      final availablePrices = priceDetails.where((d) => d.productId == product.id).toList();
+                      return _AnimatedItemCard(
+                        product: product,
+                        inventory: inventory,
+                        availablePrices: availablePrices,
+                        onAddToCart: () => _addToCart(product, 0.0),
+                        onViewDetails: () => _showProductDetails(product, inventory),
+                      );
+                    },
                   );
                 },
               ),
             ),
             Container(
-              padding: const EdgeInsets.all(16),
+              constraints: BoxConstraints(maxHeight: screenWidth > 600 ? 180 : 220),
+              padding: EdgeInsets.all(screenWidth > 800 ? 20 : 16),
               decoration: BoxDecoration(
                 color: Colors.white,
                 boxShadow: [
@@ -270,88 +551,177 @@ class _SaleScreenState extends State<SaleScreen> {
                   return Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: DropdownButtonFormField<int?>(
-                              decoration: const InputDecoration(
-                                labelText: 'Customer',
-                                border: OutlineInputBorder(),
-                                prefixIcon: Icon(Icons.person),
-                              ),
-                              value: salesProvider.selectedCustomerId,
-                              items: [
-                                const DropdownMenuItem(value: null, child: Text('Select customer')),
-                                ...(context.watch<CustomerProvider>().customers.map((customer) {
-                                  return DropdownMenuItem(
-                                    value: customer.id,
-                                    child: Text(customer.name),
+                      if (screenWidth > 600)
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: Consumer<CustomerProvider>(
+                                builder: (context, customerProvider, _) {
+                                  return DropdownButtonFormField<int?>(
+                                    decoration: const InputDecoration(
+                                      labelText: 'Customer',
+                                      border: OutlineInputBorder(),
+                                      prefixIcon: Icon(Icons.person),
+                                    ),
+                                    value: salesProvider.selectedCustomerId,
+                                    items: [
+                                      const DropdownMenuItem(value: null, child: Text('Select customer')),
+                                      ...customerProvider.customers.map((customer) {
+                                        return DropdownMenuItem(
+                                          value: customer.id,
+                                          child: Text(customer.name.length > 15 ? '${customer.name.substring(0, 15)}...' : customer.name),
+                                        );
+                                      }),
+                                    ],
+                                    onChanged: (value) {
+                                      salesProvider.setCustomer(value);
+                                    },
                                   );
-                                })),
-                              ],
-                              onChanged: (value) {
-                                salesProvider.setCustomer(value);
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              decoration: const InputDecoration(
-                                labelText: 'Payment Method',
-                                border: OutlineInputBorder(),
-                                prefixIcon: Icon(Icons.payment),
+                                },
                               ),
-                              initialValue: salesProvider.paymentMethod,
-                              items: const [
-                                DropdownMenuItem(value: null, child: Text('Select method')),
-                                DropdownMenuItem(value: 'Cash', child: Text('Cash')),
-                                DropdownMenuItem(value: 'Credit Card', child: Text('Credit Card')),
-                                DropdownMenuItem(value: 'Debit Card', child: Text('Debit Card')),
-                                DropdownMenuItem(value: 'Transfer', child: Text('Bank Transfer')),
-                              ],
-                              onChanged: (value) {
-                                salesProvider.setPaymentMethod(value);
-                              },
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _salespersonController,
-                              decoration: const InputDecoration(
-                                labelText: 'Salesperson',
-                                border: OutlineInputBorder(),
-                                prefixIcon: Icon(Icons.badge),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: DropdownButtonFormField<String>(
+                                decoration: const InputDecoration(
+                                  labelText: 'Payment',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.payment),
+                                ),
+                                value: salesProvider.paymentMethod,
+                                items: const [
+                                  DropdownMenuItem(value: null, child: Text('Select')),
+                                  DropdownMenuItem(value: 'Cash', child: Text('Cash')),
+                                  DropdownMenuItem(value: 'Credit', child: Text('Credit')),
+                                  DropdownMenuItem(value: 'Debit', child: Text('Debit')),
+                                  DropdownMenuItem(value: 'Transfer', child: Text('Transfer')),
+                                ],
+                                onChanged: (value) {
+                                  salesProvider.setPaymentMethod(value);
+                                },
                               ),
-                              onChanged: (value) {
-                                salesProvider.setSalesperson(value);
-                              },
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'Required';
-                                }
-                                return null;
-                              },
                             ),
-                          ),
-                          const SizedBox(width: 10),
-                          ElevatedButton.icon(
-                            onPressed: _showSummary,
-                            icon: const Icon(Icons.shopping_cart),
-                            label: Text('Cart (${salesProvider.cart.length})'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.orange,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _salespersonController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Salesperson',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.badge),
+                                ),
+                                onChanged: (value) {
+                                  salesProvider.setSalesperson(value);
+                                },
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Required';
+                                  }
+                                  return null;
+                                },
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                            const SizedBox(width: 10),
+                            ElevatedButton.icon(
+                              onPressed: _showSummary,
+                              icon: const Icon(Icons.shopping_cart),
+                              label: Text('${salesProvider.cart.length}'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.orange,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                              ),
+                            ),
+                          ],
+                        )
+                      else
+                        Column(
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: DropdownButtonFormField<int?>(
+                                    decoration: const InputDecoration(
+                                      labelText: 'Customer',
+                                      border: OutlineInputBorder(),
+                                      prefixIcon: Icon(Icons.person),
+                                    ),
+                                    value: salesProvider.selectedCustomerId,
+                                    items: [
+                                      const DropdownMenuItem(value: null, child: Text('Select customer')),
+                                      ...(context.watch<CustomerProvider>().customers.map((customer) {
+                                        return DropdownMenuItem(
+                                          value: customer.id,
+                                          child: Text(customer.name.length > 15 ? '${customer.name.substring(0, 15)}...' : customer.name),
+                                        );
+                                      })),
+                                    ],
+                                    onChanged: (value) {
+                                      salesProvider.setCustomer(value);
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: DropdownButtonFormField<String>(
+                                    decoration: const InputDecoration(
+                                      labelText: 'Payment Method',
+                                      border: OutlineInputBorder(),
+                                      prefixIcon: Icon(Icons.payment),
+                                    ),
+                                    value: salesProvider.paymentMethod,
+                                    items: const [
+                                      DropdownMenuItem(value: null, child: Text('Select method')),
+                                      DropdownMenuItem(value: 'Cash', child: Text('Cash')),
+                                      DropdownMenuItem(value: 'Credit', child: Text('Credit')),
+                                      DropdownMenuItem(value: 'Debit', child: Text('Debit')),
+                                      DropdownMenuItem(value: 'Transfer', child: Text('Transfer')),
+                                    ],
+                                    onChanged: (value) {
+                                      salesProvider.setPaymentMethod(value);
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: _salespersonController,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Salesperson',
+                                      border: OutlineInputBorder(),
+                                      prefixIcon: Icon(Icons.badge),
+                                    ),
+                                    onChanged: (value) {
+                                      salesProvider.setSalesperson(value);
+                                    },
+                                    validator: (value) {
+                                      if (value == null || value.trim().isEmpty) {
+                                        return 'Required';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                ElevatedButton.icon(
+                                  onPressed: _showSummary,
+                                  icon: const Icon(Icons.shopping_cart),
+                                  label: Text('Cart (${salesProvider.cart.length})'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.orange,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                     ],
                   );
                 },
@@ -365,12 +735,18 @@ class _SaleScreenState extends State<SaleScreen> {
 }
 
 class _AnimatedItemCard extends StatefulWidget {
-  final Map<String, dynamic> product;
+  final dynamic product;
+  final InventoryModel? inventory;
+  final List<PriceListDetailModel> availablePrices;
   final VoidCallback onAddToCart;
+  final VoidCallback onViewDetails;
 
   const _AnimatedItemCard({
     required this.product,
+    this.inventory,
+    required this.availablePrices,
     required this.onAddToCart,
+    required this.onViewDetails,
   });
 
   @override
@@ -380,6 +756,7 @@ class _AnimatedItemCard extends StatefulWidget {
 class __AnimatedItemCardState extends State<_AnimatedItemCard> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
+  bool _isHovered = false;
 
   @override
   void initState() {
@@ -401,96 +778,122 @@ class __AnimatedItemCardState extends State<_AnimatedItemCard> with SingleTicker
   }
 
   void _handleAddToCart() {
-    if (widget.product['quantity'] > 0) {
-      widget.onAddToCart();
+    widget.onAddToCart();
+    setState(() {
       _controller.forward().then((_) {
         _controller.reverse();
       });
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Product out of stock'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15),
-      ),
-      elevation: 5,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
-              child: Stack(
-                fit: StackFit.expand,
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: _handleAddToCart,
+        child: Card(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          elevation: _isHovered ? 8 : 5,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Stack(
                 children: [
-                  Image.asset(
-                    widget.product['image'],
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: Colors.grey[300],
-                        child: const Icon(Icons.image_not_supported, size: 50),
-                      );
-                    },
-                  ),
-                  if (widget.product['quantity'] == 0)
-                    Container(
-                      color: Colors.black54,
-                      child: const Center(
-                        child: Text(
-                          'Out of Stock',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.amber[100],
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                      ),
+                      child: Center(
+                        child: Icon(
+                          Icons.shopping_bag,
+                          size: 50,
+                          color: Colors.amber[800],
                         ),
                       ),
                     ),
-                ],
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.product['name'],
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  '\$${widget.product['price'].toStringAsFixed(2)}',
-                  style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  'Available: ${widget.product['quantity']}',
-                  style: TextStyle(
-                    color: widget.product['quantity'] > 0 ? Colors.grey : Colors.red,
                   ),
-                ),
-                const SizedBox(height: 5),
-                Center(
-                  child: ScaleTransition(
-                    scale: _animation,
-                    child: ElevatedButton(
-                      onPressed: widget.product['quantity'] > 0 ? _handleAddToCart : null,
-                      child: const Text('Add to Cart'),
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: IconButton(
+                      icon: const Icon(Icons.info_outline, color: Colors.white),
+                      onPressed: widget.onViewDetails,
+                      tooltip: 'View Details',
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.black.withOpacity(0.3),
+                      ),
                     ),
                   ),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.product.description ?? 'Product ${widget.product.id}',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (widget.inventory?.weight != null) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(Icons.scale, size: 14, color: Colors.grey[600]),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${widget.inventory!.weight} g',
+                            style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (widget.availablePrices.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 4,
+                        runSpacing: 4,
+                        children: widget.availablePrices.take(3).map((priceDetail) {
+                          return Chip(
+                            label: Text(
+                              '\$${priceDetail.price?.toStringAsFixed(2) ?? "0.00"}',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                            backgroundColor: Colors.green,
+                            padding: EdgeInsets.zero,
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    Center(
+                      child: ScaleTransition(
+                        scale: _animation,
+                        child: ElevatedButton(
+                          onPressed: _handleAddToCart,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.amber,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text('Add to Cart', style: TextStyle(fontSize: 12)),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

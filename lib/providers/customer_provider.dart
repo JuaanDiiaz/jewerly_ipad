@@ -68,7 +68,7 @@ class CustomerProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _apiService.put('/customers/$id', body: customerData);
+      final response = await _apiService.put('/Customer/$id', body: customerData);
       if (response != null) {
         final index = _customers.indexWhere((c) => c.id == id);
         if (index != -1) {
@@ -93,7 +93,7 @@ class CustomerProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _apiService.delete('/customers/$id');
+      await _apiService.delete('/Customer/$id');
       _customers.removeWhere((c) => c.id == id);
       _isLoading = false;
       notifyListeners();

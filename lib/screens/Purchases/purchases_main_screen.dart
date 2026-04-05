@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:p_a_jewerly/infraestructure/services/api_service.dart';
+import 'package:p_a_jewerly/providers/supplier_provider.dart';
 import 'package:p_a_jewerly/widgets/loading_overlay.dart';
 
 class PurchasesMainScreen extends StatefulWidget {
@@ -11,129 +11,15 @@ class PurchasesMainScreen extends StatefulWidget {
 }
 
 class _PurchasesMainScreenState extends State<PurchasesMainScreen> {
-  final ApiService _apiService = ApiService();
-  List<Map<String, dynamic>> _purchaseOrders = [];
-  bool _isLoading = false;
-  String? _error;
+  int? _selectedSupplierId;
+  String _statusFilter = 'All';
 
   @override
   void initState() {
     super.initState();
-    _fetchPurchaseOrders();
-  }
-
-  Future<void> _fetchPurchaseOrders() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<SupplierProvider>().fetchSuppliers();
     });
-
-    try {
-      // TODO: Replace with actual API call when endpoint is available
-      // final response = await _apiService.get('/purchase-orders');
-      // _purchaseOrders = (response as List).map((json) => json).toList();
-
-      // Mock data for now
-      _purchaseOrders = [
-        {'id': 1, 'supplier': 'Gold Suppliers Inc.', 'date': '2024-01-15', 'total': 5000.00, 'status': 'Completed'},
-        {'id': 2, 'supplier': 'Diamond World', 'date': '2024-01-20', 'total': 12000.00, 'status': 'Pending'},
-        {'id': 3, 'supplier': 'Silver Express', 'date': '2024-02-01', 'total': 3500.00, 'status': 'In Transit'},
-      ];
-    } catch (e) {
-      _error = e.toString();
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Purchases'),
-        backgroundColor: Colors.amber[700],
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _fetchPurchaseOrders,
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? AppErrorWidget(
-                  message: _error!,
-                  onRetry: _fetchPurchaseOrders,
-                )
-              : _purchaseOrders.isEmpty
-                  ? const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey),
-                          SizedBox(height: 16),
-                          Text(
-                            'No purchase orders yet',
-                            style: TextStyle(fontSize: 18, color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _purchaseOrders.length,
-                      itemBuilder: (context, index) {
-                        final order = _purchaseOrders[index];
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          elevation: 3,
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.all(16),
-                            leading: CircleAvatar(
-                              backgroundColor: _getStatusColor(order['status']),
-                              child: const Icon(Icons.shopping_bag, color: Colors.white),
-                            ),
-                            title: Text(
-                              order['supplier'],
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SizedBox(height: 4),
-                                Text('Date: ${order['date']}'),
-                                Text('Total: \$${order['total'].toStringAsFixed(2)}'),
-                              ],
-                            ),
-                            trailing: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: _getStatusColor(order['status']).withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                order['status'],
-                                style: TextStyle(
-                                  color: _getStatusColor(order['status']),
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            onTap: () => _showOrderDetails(order),
-                          ),
-                        );
-                      },
-                    ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showCreatePurchaseOrderDialog(),
-        icon: const Icon(Icons.add),
-        label: const Text('New Order'),
-        backgroundColor: Colors.amber[700],
-      ),
-    );
   }
 
   Color _getStatusColor(String status) {
@@ -151,7 +37,134 @@ class _PurchasesMainScreenState extends State<PurchasesMainScreen> {
     }
   }
 
-  void _showOrderDetails(Map<String, dynamic> order) {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Purchase Orders'),
+        backgroundColor: Colors.amber[700],
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(
+                      labelText: 'Status Filter',
+                      border: OutlineInputBorder(),
+                    ),
+                    value: _statusFilter,
+                    items: const [
+                      DropdownMenuItem(value: 'All', child: Text('All')),
+                      DropdownMenuItem(value: 'Pending', child: Text('Pending')),
+                      DropdownMenuItem(value: 'In Transit', child: Text('In Transit')),
+                      DropdownMenuItem(value: 'Completed', child: Text('Completed')),
+                    ],
+                    onChanged: (value) {
+                      setState(() => _statusFilter = value ?? 'All');
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Consumer<SupplierProvider>(
+              builder: (context, provider, _) {
+                if (provider.isLoading && provider.suppliers.isEmpty) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (provider.error != null) {
+                  return AppErrorWidget(
+                    message: provider.error!,
+                    onRetry: () => provider.fetchSuppliers(),
+                  );
+                }
+                if (provider.suppliers.isEmpty) {
+                  return const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey),
+                        SizedBox(height: 16),
+                        Text(
+                          'No suppliers available',
+                          style: TextStyle(fontSize: 18, color: Colors.grey),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Add suppliers first to create purchase orders',
+                          style: TextStyle(fontSize: 14, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                // Note: This shows suppliers as a placeholder until PurchaseOrder provider is added
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: provider.suppliers.length,
+                  itemBuilder: (context, index) {
+                    final supplier = provider.suppliers[index];
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      elevation: 3,
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.all(16),
+                        leading: CircleAvatar(
+                          backgroundColor: Colors.blue[100],
+                          child: const Icon(Icons.shopping_bag, color: Colors.blue),
+                        ),
+                        title: Text(
+                          supplier.name ?? 'Supplier ${supplier.id}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (supplier.clientNumber != null && supplier.clientNumber!.isNotEmpty)
+                              Text('Client #: ${supplier.clientNumber}'),
+                            if (supplier.shipVia != null && supplier.shipVia!.isNotEmpty)
+                              Text('Ship via: ${supplier.shipVia}'),
+                          ],
+                        ),
+                        trailing: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'Active',
+                            style: TextStyle(
+                              color: Colors.green,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        onTap: () => _showSupplierDetails(supplier),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showCreatePurchaseOrderDialog(),
+        icon: const Icon(Icons.add),
+        label: const Text('New Order'),
+        backgroundColor: Colors.amber[700],
+      ),
+    );
+  }
+
+  void _showSupplierDetails(dynamic supplier) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -165,15 +178,16 @@ class _PurchasesMainScreenState extends State<PurchasesMainScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Purchase Order Details',
+                  'Supplier Details',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 20),
-                _buildDetailRow('Order ID', '#${order['id']}'),
-                _buildDetailRow('Supplier', order['supplier']),
-                _buildDetailRow('Date', order['date']),
-                _buildDetailRow('Status', order['status']),
-                _buildDetailRow('Total', '\$${order['total'].toStringAsFixed(2)}'),
+                _buildDetailRow('Supplier ID', '#${supplier.id}'),
+                _buildDetailRow('Name', supplier.name ?? 'N/A'),
+                if (supplier.clientNumber != null && supplier.clientNumber!.isNotEmpty)
+                  _buildDetailRow('Client Number', supplier.clientNumber!),
+                if (supplier.shipVia != null && supplier.shipVia!.isNotEmpty)
+                  _buildDetailRow('Ship Via', supplier.shipVia!),
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
@@ -215,21 +229,11 @@ class _PurchasesMainScreenState extends State<PurchasesMainScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Create Purchase Order'),
-        content: const Text('Purchase order creation form will be implemented here.'),
+        content: const Text('Purchase order creation requires a PurchaseOrderProvider. This feature can be added by creating a new provider similar to existing ones.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Close'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              // TODO: Implement purchase order creation
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Purchase order creation coming soon')),
-              );
-            },
-            child: const Text('Create'),
           ),
         ],
       ),
