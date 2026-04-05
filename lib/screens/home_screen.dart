@@ -75,25 +75,22 @@ class _HomeScreenState extends State<HomeScreen> {
         text: 'Prices',
         icon: Icons.money,
         onPressed: () => setState(() {
-          _currentWidget = Center(child: Text('Prices'));
+          _currentWidget = PricesMainScreen();
         }),
       ),
       CollapsibleItem(
-          text: 'Purchasess',
-          icon: Icons.person,
+          text: 'Purchases',
+          icon: Icons.shopping_cart,
           onPressed: () => setState(() {
-                _currentWidget = Center(child: Text('Purchasess'));
+                _currentWidget = PurchasesMainScreen();
               }),
           subItems: [
             CollapsibleItem(
-              text: 'Purchase order',
+              text: 'Purchase orders',
               icon: Icons.edit_document,
-              onPressed: () => setState(() {}),
-            ),
-            CollapsibleItem(
-              text: 'Purchases items',
-              icon: Icons.list_rounded,
-              onPressed: () => setState(() {}),
+              onPressed: () => setState(() {
+                _currentWidget = PurchasesMainScreen();
+              }),
             ),
           ]),
       CollapsibleItem(
@@ -122,10 +119,69 @@ class _HomeScreenState extends State<HomeScreen> {
         text: 'Settings',
         icon: Icons.settings,
         onPressed: () => setState(() {
-          _currentWidget = Center(child: Text('Settings'));
+          _currentWidget = const SettingsScreen();
         }),
-        onHold: () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text("Settings"))),
+        onHold: () => setState(() {
+          _currentWidget = const SettingsScreen();
+        }),
       ),
+      CollapsibleItem(
+          text: 'Admin',
+          icon: Icons.admin_panel_settings,
+          onPressed: () => setState(() {
+                _currentWidget = const WarehousesScreen();
+              }),
+          subItems: [
+            CollapsibleItem(
+              text: 'Warehouses',
+              icon: Icons.store,
+              onPressed: () => setState(() {
+                _currentWidget = const WarehousesScreen();
+              }),
+            ),
+            CollapsibleItem(
+              text: 'Categories',
+              icon: Icons.category,
+              onPressed: () => setState(() {
+                _currentWidget = const CategoriesScreen();
+              }),
+            ),
+            CollapsibleItem(
+              text: 'Payment Methods',
+              icon: Icons.payment,
+              onPressed: () => setState(() {
+                _currentWidget = const PaymentMethodsScreen();
+              }),
+            ),
+            CollapsibleItem(
+              text: 'Suppliers',
+              icon: Icons.business,
+              onPressed: () => setState(() {
+                _currentWidget = const SuppliersScreen();
+              }),
+            ),
+            CollapsibleItem(
+              text: 'Supplier Products',
+              icon: Icons.production_quantity_limits,
+              onPressed: () => setState(() {
+                _currentWidget = const SupplierProductsScreen();
+              }),
+            ),
+            CollapsibleItem(
+              text: 'Price List Details',
+              icon: Icons.price_check,
+              onPressed: () => setState(() {
+                _currentWidget = const PriceListDetailsScreen();
+              }),
+            ),
+            CollapsibleItem(
+              text: 'Sales Tax',
+              icon: Icons.percent,
+              onPressed: () => setState(() {
+                _currentWidget = const SalesTaxScreen();
+              }),
+            ),
+          ]),
     ];
   }
 

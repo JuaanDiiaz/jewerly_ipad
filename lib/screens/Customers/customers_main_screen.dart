@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:p_a_jewerly/components/bottom_bar_screen.dart';
+import 'package:provider/provider.dart';
+import 'package:p_a_jewerly/providers/customer_provider.dart';
+import 'package:p_a_jewerly/widgets/loading_overlay.dart';
 
 class CustomerMainScreen extends StatefulWidget {
   const CustomerMainScreen({super.key});
@@ -9,48 +11,119 @@ class CustomerMainScreen extends StatefulWidget {
 }
 
 class _CustomerMainScreenState extends State<CustomerMainScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<CustomerProvider>().fetchCustomers();
+    });
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  void _clearForm() {
+    _nameController.clear();
+    _emailController.clear();
+    _phoneController.clear();
+    _formKey.currentState?.reset();
   }
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    return BottomBarScreen(
-      body: SingleChildScrollView(
-        child: Column(
+    return Consumer<CustomerProvider>(
+      builder: (context, customerProvider, _) {
+        return Stack(
           children: [
-            CustomerHeader(),
-            Container(
-              height: size.height * 0.7,
-              child: ListView.builder(
-                itemCount: 20,
-                itemBuilder: (_, index) {
-                  return _CustomerItem(index: index);
-                },
+            SingleChildScrollView(
+              child: Column(
+                children: [
+                  CustomerHeader(),
+                  SizedBox(
+                    height: MediaQuery.of(context).size.height * 0.7,
+                    child: customerProvider.isLoading && customerProvider.customers.isEmpty
+                        ? const Center(child: CircularProgressIndicator())
+                        : customerProvider.error != null
+                            ? AppErrorWidget(
+                                message: customerProvider.error!,
+                                onRetry: () => customerProvider.fetchCustomers(),
+                              )
+                            : ListView.builder(
+                                itemCount: customerProvider.customers.length,
+                                itemBuilder: (_, index) {
+                                  return _CustomerItem(
+                                    customer: customerProvider.customers[index],
+                                    onDelete: () {
+                                      customerProvider.deleteCustomer(customerProvider.customers[index].id);
+                                    },
+                                  );
+                                },
+                              ),
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: CreateUser(
+                formKey: _formKey,
+                nameController: _nameController,
+                emailController: _emailController,
+                phoneController: _phoneController,
+                onClear: _clearForm,
               ),
             ),
           ],
-        ),
-      ),
-      actionWidget: CreateUser(),
+        );
+      },
     );
   }
 }
 
 class _CustomerItem extends StatelessWidget {
-  const _CustomerItem({super.key, required this.index});
-  final int index;
+  final dynamic customer;
+  final VoidCallback onDelete;
+
+  const _CustomerItem({
+    required this.customer,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Dismissible(
       key: UniqueKey(),
       crossAxisEndOffset: 0.2,
-      onDismissed: (direction) {},
+      onDismissed: (direction) {
+        if (direction == DismissDirection.endToStart) {
+          onDelete();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Customer deleted'),
+              action: SnackBarAction(
+                label: 'Undo',
+                onPressed: () {
+                  // Implement undo logic
+                },
+              ),
+            ),
+          );
+        }
+      },
       background: Container(
-        margin: EdgeInsets.all(10),
+        margin: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: Colors.green,
           borderRadius: BorderRadius.circular(10),
@@ -59,12 +132,12 @@ class _CustomerItem extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
             SizedBox(width: 20),
-            Icon(Icons.add, color: Colors.white),
+            Icon(Icons.edit, color: Colors.white),
           ],
         ),
       ),
       secondaryBackground: Container(
-        margin: EdgeInsets.all(10),
+        margin: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: Colors.red,
           borderRadius: BorderRadius.circular(10),
@@ -78,7 +151,7 @@ class _CustomerItem extends StatelessWidget {
         ),
       ),
       child: Card(
-        margin: EdgeInsets.all(10),
+        margin: const EdgeInsets.all(10),
         elevation: 5,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
@@ -91,21 +164,23 @@ class _CustomerItem extends StatelessWidget {
               CircleAvatar(
                 backgroundColor: Colors.amberAccent,
                 radius: 20,
-                child: Text(index.toString()),
+                child: Text(customer.name[0].toUpperCase()),
               ),
-              SizedBox(width: 20),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Name: Juanit$index de costa btava cortes',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(height: 10),
-                  Text('Phone: 5532499504'),
-                  SizedBox(height: 10),
-                  Text('Email: $index@gmail.com'),
-                ],
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      customer.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 10),
+                    Text('Phone: ${customer.phone}'),
+                    const SizedBox(height: 10),
+                    Text('Email: ${customer.email}'),
+                  ],
+                ),
               ),
             ],
           ),
@@ -134,7 +209,7 @@ class CustomerHeader extends StatelessWidget {
           ),
         ],
       ),
-      child: Row(
+      child: const Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.person, size: 40, color: Colors.white),
@@ -153,77 +228,165 @@ class CustomerHeader extends StatelessWidget {
   }
 }
 
-class CreateUser extends StatelessWidget {
-  const CreateUser({super.key});
+class CreateUser extends StatefulWidget {
+  final GlobalKey<FormState> formKey;
+  final TextEditingController nameController;
+  final TextEditingController emailController;
+  final TextEditingController phoneController;
+  final VoidCallback onClear;
+
+  const CreateUser({
+    super.key,
+    required this.formKey,
+    required this.nameController,
+    required this.emailController,
+    required this.phoneController,
+    required this.onClear,
+  });
+
+  @override
+  State<CreateUser> createState() => _CreateUserState();
+}
+
+class _CreateUserState extends State<CreateUser> {
+  bool _validateEmail(String email) {
+    return RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
+  }
+
+  bool _validatePhone(String phone) {
+    return RegExp(r'^\d{8,15}$').hasMatch(phone);
+  }
+
+  Future<void> _saveCustomer() async {
+    if (!widget.formKey.currentState!.validate()) {
+      return;
+    }
+
+    final customerProvider = context.read<CustomerProvider>();
+
+    final success = await customerProvider.createCustomer({
+      'name': widget.nameController.text.trim(),
+      'email': widget.emailController.text.trim(),
+      'phone': widget.phoneController.text.trim(),
+    });
+
+    if (success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        successSnackBar('Customer created successfully'),
+      );
+      widget.onClear();
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        errorSnackBar(customerProvider.error ?? 'Failed to create customer'),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      child: Column(
-        children: [
-          _MinSpace(),
-          Text(
-            'Add a new customer',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          _MinSpace(),
-          _NewCustomerForm(),
-          _MinSpace(),
-          OutlinedButton(
-            onPressed: () {},
-            child: Text('Save'),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
           ),
         ],
       ),
-    );
-  }
-}
-
-class _NewCustomerForm extends StatelessWidget {
-  const _NewCustomerForm({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
       child: Form(
+        key: widget.formKey,
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            _CustomerInput(label: 'Name'),
-            const _MinSpace(),
-            _CustomerInput(label: 'Email'),
-            const _MinSpace(),
-            _CustomerInput(label: 'Phone'),
+            const Text(
+              'Add a new customer',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 15),
+            TextFormField(
+              controller: widget.nameController,
+              autocorrect: false,
+              keyboardType: TextInputType.text,
+              decoration: const InputDecoration(
+                labelText: 'Name',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.person),
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Name is required';
+                }
+                if (value.trim().length < 2) {
+                  return 'Name must be at least 2 characters';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 15),
+            TextFormField(
+              controller: widget.emailController,
+              autocorrect: false,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(
+                labelText: 'Email',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.email),
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Email is required';
+                }
+                if (!_validateEmail(value.trim())) {
+                  return 'Please enter a valid email';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 15),
+            TextFormField(
+              controller: widget.phoneController,
+              autocorrect: false,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(
+                labelText: 'Phone',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.phone),
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Phone is required';
+                }
+                if (!_validatePhone(value.trim())) {
+                  return 'Please enter a valid phone number (8-15 digits)';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 15),
+            Consumer<CustomerProvider>(
+              builder: (context, provider, _) {
+                return SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: provider.isLoading ? null : _saveCustomer,
+                    child: provider.isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Save'),
+                  ),
+                );
+              },
+            ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _MinSpace extends StatelessWidget {
-  const _MinSpace({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 15,
-    );
-  }
-}
-
-class _CustomerInput extends StatelessWidget {
-  const _CustomerInput({super.key, required this.label});
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextFormField(
-      autocorrect: false,
-      keyboardType: TextInputType.text,
-      decoration: InputDecoration(
-        labelText: label,
-        border: OutlineInputBorder(),
       ),
     );
   }

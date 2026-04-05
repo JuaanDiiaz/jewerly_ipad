@@ -7,11 +7,11 @@ String warehouseModelToJson(WarehouseModel data) => json.encode(data.toJson());
 
 class WarehouseModel {
   int id;
-  String name;
+  String? name;
 
   WarehouseModel({
     required this.id,
-    required this.name,
+    this.name,
   });
 
   factory WarehouseModel.fromJson(Map<String, dynamic> json) => WarehouseModel(

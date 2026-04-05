@@ -8,16 +8,16 @@ String categoryModelToJson(CategoryModel data) => json.encode(data.toJson());
 class CategoryModel {
   int id;
   int idParentCategory;
-  String categoryNumber;
-  String description;
-  String extraInformation;
+  String? categoryNumber;
+  String? description;
+  String? extraInformation;
 
   CategoryModel({
     required this.id,
     required this.idParentCategory,
-    required this.categoryNumber,
-    required this.description,
-    required this.extraInformation,
+    this.categoryNumber,
+    this.description,
+    this.extraInformation,
   });
 
   factory CategoryModel.fromJson(Map<String, dynamic> json) => CategoryModel(

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_3d_controller/flutter_3d_controller.dart';
+import 'package:provider/provider.dart';
 import 'package:p_a_jewerly/components/bottom_bar_screen.dart';
+import 'package:p_a_jewerly/providers/product_provider.dart';
+import 'package:p_a_jewerly/widgets/loading_overlay.dart';
 
 class ProductsMainScreen extends StatefulWidget {
   const ProductsMainScreen({super.key});
@@ -14,11 +17,12 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
 
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
-
     controller.onModelLoaded.addListener(() {
-      print('model is loaded : ${controller.onModelLoaded.value}');
+      debugPrint('model is loaded : ${controller.onModelLoaded.value}');
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ProductProvider>().fetchProducts();
     });
   }
 
@@ -27,8 +31,8 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
     return BottomBarScreen(
       body: Center(
         child: _ModelThreeD(controller: controller),
-      ), 
-      actionWidget: CreateProduct()
+      ),
+      actionWidget: CreateProduct(),
     );
   }
 }
@@ -44,149 +48,138 @@ class _ModelThreeD extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-            color: Colors.white,
-            height: 300,
-            width: double.infinity,
-            child: //The 3D viewer widget for glb and gltf format
-             Flutter3DViewer(
-                //If you pass 'true' the flutter_3d_controller will add gesture interceptor layer
-                //to prevent gesture recognizers from malfunctioning on iOS and some Android devices.
-                //the default value is true
-                activeGestureInterceptor: true,
-                //If you don't pass progressBarColor, the color of defaultLoadingProgressBar will be grey.
-                //You can set your custom color or use [Colors.transparent] for hiding loadingProgressBar.
-                progressBarColor: Colors.orange,
-                //You can disable viewer touch response by setting 'enableTouch' to 'false'
-                enableTouch: true,
-                //This callBack will return the loading progress value between 0 and 1.0
-                onProgress: (double progressValue) {
-                  print('model loading progress : $progressValue');
-                },
-                //This callBack will call after model loaded successfully and will return model address
-                onLoad: (String modelAddress) {
-                  print('model loaded : $modelAddress');
-                },
-                //this callBack will call when model failed to load and will return failure error
-                onError: (String error) {
-                  print('model failed to load : $error');
-                },
-                //You can have full control of 3d model animations, textures and camera
-                controller: controller,
-                src: 'assets/ring.glb', //3D model with different animations
-                //src: 'assets/sheen_chair.glb', //3D model with different textures
-                //src: 'https://modelviewer.dev/shared-assets/models/Astronaut.glb', // 3D model from URL
-            ),
-          );
+      color: Colors.white,
+      height: 300,
+      width: double.infinity,
+      child: Flutter3DViewer(
+        activeGestureInterceptor: true,
+        progressBarColor: Colors.orange,
+        enableTouch: true,
+        onProgress: (double progressValue) {
+          debugPrint('model loading progress : $progressValue');
+        },
+        onLoad: (String modelAddress) {
+          debugPrint('model loaded : $modelAddress');
+        },
+        onError: (String error) {
+          debugPrint('model failed to load : $error');
+        },
+        controller: controller,
+        src: 'assets/ring.glb',
+      ),
+    );
   }
 }
 
 class CreateProduct extends StatefulWidget {
-  CreateProduct({super.key});
+  const CreateProduct({super.key});
 
   @override
   State<CreateProduct> createState() => _CreateProductState();
 }
 
 class _CreateProductState extends State<CreateProduct> {
-  final _scrollcontroller = ScrollController();
-  List<String> categories = [
-    'red gold', 'white gold', 'yellow gold', '22"', '10"', '5"', '2"',
-    '22k', '14k',
-  ];
+  final _formKey = GlobalKey<FormState>();
+  final _descriptionController = TextEditingController();
 
-  Set<String> selectedCategories = {};
+  @override
+  void dispose() {
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveProduct() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    final productProvider = context.read<ProductProvider>();
+
+    final success = await productProvider.createProduct({
+      'description': _descriptionController.text.trim(),
+    });
+
+    if (success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        successSnackBar('Product created successfully'),
+      );
+      _clearForm();
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        errorSnackBar(productProvider.error ?? 'Failed to create product'),
+      );
+    }
+  }
+
+  void _clearForm() {
+    _descriptionController.clear();
+    _formKey.currentState?.reset();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
     return SingleChildScrollView(
-      controller: _scrollcontroller,
-      child: Container(
+      padding: const EdgeInsets.all(16.0),
+      child: Form(
+        key: _formKey,
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(height: 20),
-            Text('Create a new Product'),
-            SizedBox(height: 10),
-            Container(
-              width: size.width * .5,
-              child: _ProductInput(label: 'Name'),
+            const Text(
+              'Create a new Product',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 10),
-            Text(
-              'Select Categories:',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 10),
-            Container(
-              padding: EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                color: Colors.grey[200],
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _descriptionController,
+              autocorrect: false,
+              keyboardType: TextInputType.multiline,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                labelText: 'Description',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.description),
+                hintText: 'Enter product description',
               ),
-              child: Wrap(
-                spacing: 8, // Espacio entre chips horizontalmente
-                runSpacing: 8, // Espacio entre chips verticalmente
-                children: categories.map((category) {
-                  return ChoiceChip(
-                    label: Text(category),
-                    selected: selectedCategories.contains(category),
-                    onSelected: (selected) {
-                      setState(() {
-                        if (selected) {
-                          selectedCategories.add(category);
-                          // Después de agregar un chip, desplazamos hacia abajo
-                          Future.delayed(Duration(milliseconds: 100), () {
-                            _scrollcontroller.animateTo(
-                              _scrollcontroller.position.maxScrollExtent, 
-                              duration: Duration(seconds: 1), 
-                              curve: Curves.easeOut,
-                            );
-                          });
-                        } else {
-                          selectedCategories.remove(category);
-                        }
-                      });
-                    },
-                  );
-                }).toList(),
-              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Description is required';
+                }
+                if (value.trim().length < 5) {
+                  return 'Description must be at least 5 characters';
+                }
+                return null;
+              },
             ),
-            SizedBox(height: 10),
-            Text(
-              'Selected Categories:',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              children: selectedCategories.map((category) {
-                return Chip(
-                  label: Text(category),
-                  backgroundColor: Colors.blueAccent,
-                  labelStyle: TextStyle(color: Colors.white),
+            const SizedBox(height: 20),
+            Consumer<ProductProvider>(
+              builder: (context, provider, _) {
+                return SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: provider.isLoading ? null : _saveProduct,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: provider.isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : const Text('Save Product'),
+                  ),
                 );
-              }).toList(),
+              },
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _ProductInput extends StatelessWidget {
-  const _ProductInput({
-    super.key, required this.label,
-  });
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextFormField(
-      autocorrect: false,
-      keyboardType: TextInputType.text,
-      decoration: InputDecoration(
-        labelText: label,
       ),
     );
   }
