@@ -7,17 +7,17 @@ String inventoryModelToJson(InventoryModel data) => json.encode(data.toJson());
 
 class InventoryModel {
   int id;
-  int warehouseId;
-  int productId;
-  String location;
-  int weight;
+  int? warehouseId;
+  int? productId;
+  String? location;
+  dynamic weight;
 
   InventoryModel({
     required this.id,
-    required this.warehouseId,
-    required this.productId,
-    required this.location,
-    required this.weight,
+    this.warehouseId,
+    this.productId,
+    this.location,
+    this.weight,
   });
 
   factory InventoryModel.fromJson(Map<String, dynamic> json) => InventoryModel(

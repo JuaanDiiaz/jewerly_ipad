@@ -7,15 +7,15 @@ String supplierModelToJson(SupplierModel data) => json.encode(data.toJson());
 
 class SupplierModel {
   int id;
-  String name;
-  String clientNumber;
-  String shipVia;
+  String? name;
+  String? clientNumber;
+  String? shipVia;
 
   SupplierModel({
     required this.id,
-    required this.name,
-    required this.clientNumber,
-    required this.shipVia,
+    this.name,
+    this.clientNumber,
+    this.shipVia,
   });
 
   factory SupplierModel.fromJson(Map<String, dynamic> json) => SupplierModel(

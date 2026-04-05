@@ -7,11 +7,11 @@ String productModelToJson(ProductModel data) => json.encode(data.toJson());
 
 class ProductModel {
   int id;
-  String description;
+  String? description;
 
   ProductModel({
     required this.id,
-    required this.description,
+    this.description,
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) => ProductModel(

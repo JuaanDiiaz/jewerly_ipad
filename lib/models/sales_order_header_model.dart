@@ -8,25 +8,25 @@ String salesOrderHeaderModelToJson(SalesOrderHeaderModel data) =>
 
 class SalesOrderHeaderModel {
   int id;
-  DateTime saleDate;
-  int customerId;
-  int total;
-  int paymentMethodId;
-  String notes;
+  DateTime? saleDate;
+  int? customerId;
+  dynamic total;
+  int? paymentMethodId;
+  String? notes;
 
   SalesOrderHeaderModel({
     required this.id,
-    required this.saleDate,
-    required this.customerId,
-    required this.total,
-    required this.paymentMethodId,
-    required this.notes,
+    this.saleDate,
+    this.customerId,
+    this.total,
+    this.paymentMethodId,
+    this.notes,
   });
 
   factory SalesOrderHeaderModel.fromJson(Map<String, dynamic> json) =>
       SalesOrderHeaderModel(
         id: json["id"],
-        saleDate: DateTime.parse(json["saleDate"]),
+        saleDate: json["saleDate"] == null ? null : DateTime.parse(json["saleDate"]),
         customerId: json["customerId"],
         total: json["total"],
         paymentMethodId: json["paymentMethodId"],
@@ -35,7 +35,7 @@ class SalesOrderHeaderModel {
 
   Map<String, dynamic> toJson() => {
         "id": id,
-        "saleDate": saleDate.toIso8601String(),
+        "saleDate": saleDate?.toIso8601String(),
         "customerId": customerId,
         "total": total,
         "paymentMethodId": paymentMethodId,

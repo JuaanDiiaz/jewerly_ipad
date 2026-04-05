@@ -3,24 +3,22 @@ import 'dart:convert';
 SalesTaxDetailModel salesTaxDetailModelFromJson(String str) =>
     SalesTaxDetailModel.fromJson(json.decode(str));
 
-String salesTaxDetailModelToJson(SalesTaxDetailModel data) =>
-    json.encode(data.toJson());
+String salesTaxDetailModelToJson(SalesTaxDetailModel data) => json.encode(data.toJson());
 
 class SalesTaxDetailModel {
   int id;
-  int salesOrderId;
-  String taxType;
-  int taxAmount;
+  int? salesOrderId;
+  String? taxType;
+  dynamic taxAmount;
 
   SalesTaxDetailModel({
     required this.id,
-    required this.salesOrderId,
-    required this.taxType,
-    required this.taxAmount,
+    this.salesOrderId,
+    this.taxType,
+    this.taxAmount,
   });
 
-  factory SalesTaxDetailModel.fromJson(Map<String, dynamic> json) =>
-      SalesTaxDetailModel(
+  factory SalesTaxDetailModel.fromJson(Map<String, dynamic> json) => SalesTaxDetailModel(
         id: json["id"],
         salesOrderId: json["salesOrderId"],
         taxType: json["taxType"],

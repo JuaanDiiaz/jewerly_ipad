@@ -3,30 +3,28 @@ import 'dart:convert';
 SupplierProductModel supplierProductModelFromJson(String str) =>
     SupplierProductModel.fromJson(json.decode(str));
 
-String supplierProductModelToJson(SupplierProductModel data) =>
-    json.encode(data.toJson());
+String supplierProductModelToJson(SupplierProductModel data) => json.encode(data.toJson());
 
 class SupplierProductModel {
   int id;
-  int supplierId;
-  int productId;
-  String artCode;
-  String styleCode;
-  String description;
-  int price;
+  int? supplierId;
+  int? productId;
+  String? artCode;
+  String? styleCode;
+  String? description;
+  dynamic price;
 
   SupplierProductModel({
     required this.id,
-    required this.supplierId,
-    required this.productId,
-    required this.artCode,
-    required this.styleCode,
-    required this.description,
-    required this.price,
+    this.supplierId,
+    this.productId,
+    this.artCode,
+    this.styleCode,
+    this.description,
+    this.price,
   });
 
-  factory SupplierProductModel.fromJson(Map<String, dynamic> json) =>
-      SupplierProductModel(
+  factory SupplierProductModel.fromJson(Map<String, dynamic> json) => SupplierProductModel(
         id: json["id"],
         supplierId: json["supplierId"],
         productId: json["productId"],
