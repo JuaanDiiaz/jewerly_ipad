@@ -70,7 +70,7 @@ class _CustomerPaymentsScreenState extends State<CustomerPaymentsScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<int>(
-                initialValue: _selectedCustomerId,
+                value: _selectedCustomerId,
                 decoration: const InputDecoration(
                   labelText: 'Customer',
                   border: OutlineInputBorder(),

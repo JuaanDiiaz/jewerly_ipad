@@ -11,6 +11,7 @@ class ProductProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool _isSaving = false;
   String? _error;
+  int? _lastCreatedProductId;
 
   // Cloudinary config (same as gestor_tenis project)
   static const String _cloudinaryUrl =
@@ -20,6 +21,7 @@ class ProductProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isSaving => _isSaving;
   String? get error => _error;
+  int? get lastCreatedProductId => _lastCreatedProductId;
 
   Future<void> fetchProducts() async {
     _isLoading = true;
@@ -45,8 +47,8 @@ class ProductProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _apiService.get('/Product/$id');
-      // Handle single product response if needed
+      await _apiService.get('/Product/$id');
+      // Response handled if needed for future single-product updates
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -79,7 +81,9 @@ class ProductProvider extends ChangeNotifier {
       };
       final response = await _apiService.post('/Product', body: backendData);
       if (response != null) {
-        _products.add(ProductModel.fromJson(response));
+        final newProduct = ProductModel.fromJson(response);
+        _products.add(newProduct);
+        _lastCreatedProductId = newProduct.id;
         _isLoading = false;
         _isSaving = false;
         notifyListeners();

@@ -84,7 +84,7 @@ class _PriceListDetailsScreenState extends State<PriceListDetailsScreen> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<int>(
-                initialValue: _selectedProductId,
+                value: _selectedProductId,
                 decoration: const InputDecoration(
                   labelText: 'Product',
                   border: OutlineInputBorder(),

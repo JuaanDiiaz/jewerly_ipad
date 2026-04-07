@@ -7,9 +7,13 @@ import 'package:p_a_jewerly/providers/product_provider.dart';
 import 'package:p_a_jewerly/providers/inventory_provider.dart';
 import 'package:p_a_jewerly/providers/price_list_provider.dart';
 import 'package:p_a_jewerly/providers/price_list_detail_provider.dart';
+import 'package:p_a_jewerly/providers/payment_method_provider.dart';
+import 'package:p_a_jewerly/providers/warehouse_provider.dart';
+import 'package:p_a_jewerly/providers/product_image_provider.dart';
 import 'package:p_a_jewerly/models/inventory_model.dart';
 import 'package:p_a_jewerly/models/price_list_model.dart';
 import 'package:p_a_jewerly/models/price_list_detail_model.dart';
+import 'package:p_a_jewerly/models/product_image_model.dart';
 import 'package:p_a_jewerly/widgets/loading_overlay.dart';
 
 class SaleScreen extends StatefulWidget {
@@ -34,6 +38,9 @@ class _SaleScreenState extends State<SaleScreen> {
       context.read<InventoryProvider>().fetchInventory();
       context.read<PriceListProvider>().fetchPriceLists();
       context.read<PriceListDetailProvider>().fetchPriceListDetails();
+      context.read<PaymentMethodProvider>().fetchPaymentMethods();
+      context.read<WarehouseProvider>().fetchWarehouses();
+      context.read<ProductImageProvider>().fetchAllImages();
     });
     _searchController.addListener(() {
       setState(() {
@@ -49,12 +56,32 @@ class _SaleScreenState extends State<SaleScreen> {
     super.dispose();
   }
 
-  void _addToCart(dynamic product, double price) {
-    context.read<SalesProvider>().addToCart(CartItem(
+  void _addToCart(dynamic product, double price, {int maxQuantity = 0}) {
+    final salesProvider = context.read<SalesProvider>();
+
+    // Get existing cart quantity for this product
+    final existingCartItem = salesProvider.cart.where((i) => i.productId == product.id).firstOrNull;
+    final existingQty = existingCartItem?.quantity ?? 0;
+
+    // Check if trying to add more than available
+    if (maxQuantity > 0 && existingQty >= maxQuantity) {
+      Fluttertoast.showToast(
+        msg: "No more stock available for ${product.description ?? 'Product'}",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.orange,
+        textColor: Colors.white,
+        fontSize: 16.0,
+      );
+      return;
+    }
+
+    salesProvider.addToCart(CartItem(
       productId: product.id,
       productName: product.description ?? 'Product ${product.id}',
       quantity: 1,
       unitPrice: price,
+      maxQuantity: maxQuantity,
     ));
 
     Fluttertoast.showToast(
@@ -250,7 +277,7 @@ class _SaleScreenState extends State<SaleScreen> {
                         const SizedBox(height: 16),
                         _buildSummaryRow('Customer', _getCustomerName(salesProvider.selectedCustomerId)),
                         _buildSummaryRow('Salesperson', salesProvider.salespersonName ?? 'Not specified'),
-                        _buildSummaryRow('Payment Method', salesProvider.paymentMethod ?? 'Not selected'),
+                        _buildSummaryRow('Payment Method', _getPaymentMethodName(salesProvider.paymentMethodId)),
                         const SizedBox(height: 16),
                         const Text(
                           'Cart Items:',
@@ -360,6 +387,17 @@ class _SaleScreenState extends State<SaleScreen> {
     }
   }
 
+  String _getPaymentMethodName(int? methodId) {
+    if (methodId == null) return 'Not selected';
+    final pmProvider = context.read<PaymentMethodProvider>();
+    try {
+      final method = pmProvider.paymentMethods.firstWhere((m) => m.id == methodId);
+      return method.description ?? 'Method #$methodId';
+    } catch (_) {
+      return 'Method #$methodId';
+    }
+  }
+
   Future<void> _processCheckout() async {
     final salesProvider = context.read<SalesProvider>();
 
@@ -370,7 +408,7 @@ class _SaleScreenState extends State<SaleScreen> {
       return;
     }
 
-    if (salesProvider.paymentMethod == null) {
+    if (salesProvider.paymentMethodId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         errorSnackBar('Please select a payment method'),
       );
@@ -456,8 +494,8 @@ class _SaleScreenState extends State<SaleScreen> {
               ),
             ),
             Expanded(
-              child: Consumer3<ProductProvider, InventoryProvider, PriceListDetailProvider>(
-                builder: (context, productProvider, inventoryProvider, priceDetailProvider, _) {
+              child: Consumer4<SalesProvider, ProductProvider, InventoryProvider, PriceListDetailProvider>(
+                builder: (context, salesProvider, productProvider, inventoryProvider, priceDetailProvider, _) {
                   if (productProvider.isLoading && productProvider.products.isEmpty) {
                     return const Center(child: CircularProgressIndicator());
                   }
@@ -486,22 +524,31 @@ class _SaleScreenState extends State<SaleScreen> {
                   final filteredProducts = _filterProducts(productProvider.products);
                   final inventoryMap = <int, InventoryModel>{};
                   for (final inv in inventoryProvider.inventory) {
-                    if (inv.productId != null) {
+                    // Only include inventory from the selected warehouse
+                    if (inv.productId != null && inv.warehouseId == salesProvider.selectedWarehouseId) {
                       inventoryMap[inv.productId!] = inv;
                     }
                   }
 
+                  // Filter to only products that have inventory with quantity > 0 in the selected warehouse
+                  final productsWithInventory = filteredProducts.where((p) {
+                    final inv = inventoryMap[p.id];
+                    return inv != null && (inv.quantity ?? 0) > 0;
+                  }).toList();
+
                   final priceDetails = priceDetailProvider.priceListDetails;
 
-                  if (filteredProducts.isEmpty) {
+                  if (productsWithInventory.isEmpty) {
                     return Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
+                          Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey[400]),
                           const SizedBox(height: 16),
                           Text(
-                            'No products found for "$_searchQuery"',
+                            filteredProducts.isEmpty
+                                ? 'No products found for "$_searchQuery"'
+                                : 'No products in stock',
                             style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                           ),
                         ],
@@ -516,16 +563,22 @@ class _SaleScreenState extends State<SaleScreen> {
                       mainAxisSpacing: screenWidth > 800 ? 16 : 10,
                       childAspectRatio: isPortrait ? 0.7 : 0.85,
                     ),
-                    itemCount: filteredProducts.length,
+                    itemCount: productsWithInventory.length,
                     itemBuilder: (context, index) {
-                      final product = filteredProducts[index];
+                      final product = productsWithInventory[index];
                       final inventory = inventoryMap[product.id];
                       final availablePrices = priceDetails.where((d) => d.productId == product.id).toList();
+                      // Get product image
+                      final imageProvider = context.read<ProductImageProvider>();
+                      final productImages = imageProvider.getImagesForProduct(product.id);
+                      final imageUrl = product.picture ?? (productImages.isNotEmpty ? productImages.first.imageUrl : null);
+
                       return _AnimatedItemCard(
                         product: product,
                         inventory: inventory,
                         availablePrices: availablePrices,
-                        onAddToCart: () => _addToCart(product, 0.0),
+                        imageUrl: imageUrl,
+                        onAddToCart: () => _addToCart(product, 0.0, maxQuantity: inventory?.quantity ?? 0),
                         onViewDetails: () => _showProductDetails(product, inventory),
                       );
                     },
@@ -583,22 +636,61 @@ class _SaleScreenState extends State<SaleScreen> {
                             ),
                             const SizedBox(width: 10),
                             Expanded(
-                              child: DropdownButtonFormField<String>(
-                                decoration: const InputDecoration(
-                                  labelText: 'Payment',
-                                  border: OutlineInputBorder(),
-                                  prefixIcon: Icon(Icons.payment),
-                                ),
-                                value: salesProvider.paymentMethod,
-                                items: const [
-                                  DropdownMenuItem(value: null, child: Text('Select')),
-                                  DropdownMenuItem(value: 'Cash', child: Text('Cash')),
-                                  DropdownMenuItem(value: 'Credit', child: Text('Credit')),
-                                  DropdownMenuItem(value: 'Debit', child: Text('Debit')),
-                                  DropdownMenuItem(value: 'Transfer', child: Text('Transfer')),
-                                ],
-                                onChanged: (value) {
-                                  salesProvider.setPaymentMethod(value);
+                              child: Consumer<WarehouseProvider>(
+                                builder: (context, warehouseProvider, _) {
+                                  return DropdownButtonFormField<int?>(
+                                    decoration: const InputDecoration(
+                                      labelText: 'Warehouse',
+                                      border: OutlineInputBorder(),
+                                      prefixIcon: Icon(Icons.warehouse),
+                                    ),
+                                    value: salesProvider.selectedWarehouseId,
+                                    items: [
+                                      const DropdownMenuItem(value: null, child: Text('Select')),
+                                      ...warehouseProvider.warehouses.map((wh) {
+                                        return DropdownMenuItem(
+                                          value: wh.id,
+                                          child: Text(wh.name ?? 'Warehouse ${wh.id}'),
+                                        );
+                                      }),
+                                    ],
+                                    onChanged: (value) {
+                                      salesProvider.setWarehouse(value);
+                                    },
+                                    validator: (value) {
+                                      if (value == null) {
+                                        return 'Required';
+                                      }
+                                      return null;
+                                    },
+                                  );
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Consumer<PaymentMethodProvider>(
+                                builder: (context, pmProvider, _) {
+                                  return DropdownButtonFormField<int?>(
+                                    decoration: const InputDecoration(
+                                      labelText: 'Payment',
+                                      border: OutlineInputBorder(),
+                                      prefixIcon: Icon(Icons.payment),
+                                    ),
+                                    value: salesProvider.paymentMethodId,
+                                    items: [
+                                      const DropdownMenuItem(value: null, child: Text('Select')),
+                                      ...pmProvider.paymentMethods.map((method) {
+                                        return DropdownMenuItem(
+                                          value: method.id,
+                                          child: Text(method.description ?? 'Method ${method.id}'),
+                                        );
+                                      }),
+                                    ],
+                                    onChanged: (value) {
+                                      salesProvider.setPaymentMethodId(value);
+                                    },
+                                  );
                                 },
                               ),
                             ),
@@ -664,22 +756,55 @@ class _SaleScreenState extends State<SaleScreen> {
                                 ),
                                 const SizedBox(width: 10),
                                 Expanded(
-                                  child: DropdownButtonFormField<String>(
-                                    decoration: const InputDecoration(
-                                      labelText: 'Payment Method',
-                                      border: OutlineInputBorder(),
-                                      prefixIcon: Icon(Icons.payment),
-                                    ),
-                                    value: salesProvider.paymentMethod,
-                                    items: const [
-                                      DropdownMenuItem(value: null, child: Text('Select method')),
-                                      DropdownMenuItem(value: 'Cash', child: Text('Cash')),
-                                      DropdownMenuItem(value: 'Credit', child: Text('Credit')),
-                                      DropdownMenuItem(value: 'Debit', child: Text('Debit')),
-                                      DropdownMenuItem(value: 'Transfer', child: Text('Transfer')),
-                                    ],
-                                    onChanged: (value) {
-                                      salesProvider.setPaymentMethod(value);
+                                  child: Consumer<PaymentMethodProvider>(
+                                    builder: (context, pmProvider, _) {
+                                      return DropdownButtonFormField<int?>(
+                                        decoration: const InputDecoration(
+                                          labelText: 'Payment Method',
+                                          border: OutlineInputBorder(),
+                                          prefixIcon: Icon(Icons.payment),
+                                        ),
+                                        value: salesProvider.paymentMethodId,
+                                        items: [
+                                          const DropdownMenuItem(value: null, child: Text('Select method')),
+                                          ...pmProvider.paymentMethods.map((method) {
+                                            return DropdownMenuItem(
+                                              value: method.id,
+                                              child: Text(method.description ?? 'Method ${method.id}'),
+                                            );
+                                          }),
+                                        ],
+                                        onChanged: (value) {
+                                          salesProvider.setPaymentMethodId(value);
+                                        },
+                                      );
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Consumer<WarehouseProvider>(
+                                    builder: (context, warehouseProvider, _) {
+                                      return DropdownButtonFormField<int?>(
+                                        decoration: const InputDecoration(
+                                          labelText: 'Warehouse',
+                                          border: OutlineInputBorder(),
+                                          prefixIcon: Icon(Icons.warehouse),
+                                        ),
+                                        value: salesProvider.selectedWarehouseId,
+                                        items: [
+                                          const DropdownMenuItem(value: null, child: Text('Select')),
+                                          ...warehouseProvider.warehouses.map((wh) {
+                                            return DropdownMenuItem(
+                                              value: wh.id,
+                                              child: Text(wh.name ?? 'Warehouse ${wh.id}'),
+                                            );
+                                          }),
+                                        ],
+                                        onChanged: (value) {
+                                          salesProvider.setWarehouse(value);
+                                        },
+                                      );
                                     },
                                   ),
                                 ),
@@ -738,6 +863,7 @@ class _AnimatedItemCard extends StatefulWidget {
   final dynamic product;
   final InventoryModel? inventory;
   final List<PriceListDetailModel> availablePrices;
+  final String? imageUrl;
   final VoidCallback onAddToCart;
   final VoidCallback onViewDetails;
 
@@ -745,6 +871,7 @@ class _AnimatedItemCard extends StatefulWidget {
     required this.product,
     this.inventory,
     required this.availablePrices,
+    this.imageUrl,
     required this.onAddToCart,
     required this.onViewDetails,
   });
@@ -803,19 +930,32 @@ class __AnimatedItemCardState extends State<_AnimatedItemCard> with SingleTicker
             children: [
               Stack(
                 children: [
-                  Expanded(
+                  AspectRatio(
+                    aspectRatio: 1.2,
                     child: Container(
                       decoration: BoxDecoration(
                         color: Colors.amber[100],
                         borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
                       ),
-                      child: Center(
-                        child: Icon(
-                          Icons.shopping_bag,
-                          size: 50,
-                          color: Colors.amber[800],
-                        ),
-                      ),
+                      child: widget.imageUrl != null && widget.imageUrl!.isNotEmpty
+                          ? Image.network(
+                              widget.imageUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => Center(
+                                child: Icon(
+                                  Icons.shopping_bag,
+                                  size: 50,
+                                  color: Colors.amber[800],
+                                ),
+                              ),
+                            )
+                          : Center(
+                              child: Icon(
+                                Icons.shopping_bag,
+                                size: 50,
+                                color: Colors.amber[800],
+                              ),
+                            ),
                     ),
                   ),
                   Positioned(

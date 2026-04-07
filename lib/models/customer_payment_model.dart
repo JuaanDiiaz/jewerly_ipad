@@ -36,10 +36,10 @@ class CustomerPaymentModel {
       );
 
   Map<String, dynamic> toJson() => {
-        "id": id,
+        if (id != 0) "id": id,
         "customerId": customerId,
         "salesOrderId": salesOrderId,
-        "paymentDate": paymentDate?.toIso8601String(),
+        "paymentDate": paymentDate?.toIso8601String().split('T')[0],
         "amount": amount,
         "paymentMethodId": paymentMethodId,
         "notes": notes,

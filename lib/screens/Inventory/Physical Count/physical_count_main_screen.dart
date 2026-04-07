@@ -137,7 +137,7 @@ class _PhysicalCountMainScreenState extends State<PhysicalCountMainScreen> {
             inventoryId: inv.id,
             productId: inv.productId ?? 0,
             productName: product.description ?? 'Product ${inv.productId}',
-            systemQuantity: 0,
+            systemQuantity: inv.quantity ?? 0,
           );
         }).toList(),
       );

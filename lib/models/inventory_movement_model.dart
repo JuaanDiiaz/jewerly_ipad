@@ -13,10 +13,10 @@ class InventoryMovementModel {
   String movementType;
   int quantity;
   DateTime movementDate;
-  int purchaseOrderId;
-  int salesOrderId;
-  String manualEntryReason;
-  String notes;
+  int? purchaseOrderId;
+  int? salesOrderId;
+  String? manualEntryReason;
+  String? notes;
 
   InventoryMovementModel({
     required this.id,
@@ -25,20 +25,20 @@ class InventoryMovementModel {
     required this.movementType,
     required this.quantity,
     required this.movementDate,
-    required this.purchaseOrderId,
-    required this.salesOrderId,
-    required this.manualEntryReason,
-    required this.notes,
+    this.purchaseOrderId,
+    this.salesOrderId,
+    this.manualEntryReason,
+    this.notes,
   });
 
   factory InventoryMovementModel.fromJson(Map<String, dynamic> json) =>
       InventoryMovementModel(
-        id: json["id"],
-        productId: json["productId"],
-        warehouseId: json["warehouseId"],
-        movementType: json["movementType"],
-        quantity: json["quantity"],
-        movementDate: DateTime.parse(json["movementDate"]),
+        id: json["id"] ?? 0,
+        productId: json["productId"] ?? 0,
+        warehouseId: json["warehouseId"] ?? 0,
+        movementType: json["movementType"] ?? '',
+        quantity: json["quantity"] ?? 0,
+        movementDate: DateTime.parse(json["movementDate"] ?? DateTime.now().toIso8601String()),
         purchaseOrderId: json["purchaseOrderId"],
         salesOrderId: json["salesOrderId"],
         manualEntryReason: json["manualEntryReason"],
@@ -52,9 +52,9 @@ class InventoryMovementModel {
         "movementType": movementType,
         "quantity": quantity,
         "movementDate": movementDate.toIso8601String(),
-        "purchaseOrderId": purchaseOrderId,
-        "salesOrderId": salesOrderId,
-        "manualEntryReason": manualEntryReason,
-        "notes": notes,
+        if (purchaseOrderId != null) "purchaseOrderId": purchaseOrderId,
+        if (salesOrderId != null) "salesOrderId": salesOrderId,
+        if (manualEntryReason != null) "manualEntryReason": manualEntryReason,
+        if (notes != null) "notes": notes,
       };
 }
