@@ -13,7 +13,23 @@
       "Bash(curl -s http://localhost:5259/api/Supplier)",
       "Bash(curl -s http://localhost:5259/api/PurchaseOrderHeader)",
       "Bash(curl -s http://localhost:5259/api/SalesOrderHeader)",
-      "Bash(flutter run:*)"
+      "Bash(flutter run:*)",
+      "Bash(net stop:*)",
+      "Bash(C:/Program Files/MySQL/MySQL Server 8.3/bin/mysqld.exe:*)",
+      "Bash(mysql -u root -p -e \"SELECT 1\")",
+      "Bash(tasklist)",
+      "Bash(ASPNETCORE_ENVIRONMENT=Development dotnet run --urls=\"http://localhost:5000\")",
+      "Bash(curl -s http://localhost:5000/api/Product)",
+      "Bash(mysql -u root -p'NewRootPassword123!' -e \"USE isetechc_jewelry_inventory; ALTER TABLE Products ADD COLUMN picture VARCHAR\\(255\\) NULL AFTER description;\")",
+      "Bash(curl -s http://localhost:5000/api/Warehouse)",
+      "Bash(curl -s http://localhost:5000/api/Category)",
+      "Bash(curl -s http://localhost:5000/api/Inventory)",
+      "Bash(mysql -u root -p'NewRootPassword123!' -e \"USE isetechc_jewelry_inventory; ALTER TABLE Categories ADD COLUMN idParentCategory INT NULL, ADD INDEX categoryId \\(idParentCategory\\);\")",
+      "Bash(mysql -u root -p'NewRootPassword123!' -e \"USE isetechc_jewelry_inventory; ALTER TABLE Categories CHANGE COLUMN idParentCategory id_parentCategory INT NULL;\")",
+      "Bash(mysql:*)",
+      "Bash(flutter pub:*)",
+      "Bash(flutter clean:*)",
+      "Bash(flutter build:*)"
     ]
   }
 }

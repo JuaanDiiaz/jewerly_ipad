@@ -30,6 +30,17 @@ class CustomerPaymentProvider extends ChangeNotifier {
     }
   }
 
+  /// Get payments for a specific sales order
+  List<CustomerPaymentModel> getPaymentsForSalesOrder(int salesOrderId) {
+    return _payments.where((p) => p.salesOrderId == salesOrderId).toList();
+  }
+
+  /// Calculate total paid for a sales order
+  double getTotalPaidForSalesOrder(int salesOrderId) {
+    return getPaymentsForSalesOrder(salesOrderId)
+        .fold(0.0, (sum, p) => sum + ((p.amount as num?)?.toDouble() ?? 0));
+  }
+
   Future<bool> createPayment(CustomerPaymentModel payment) async {
     _isLoading = true;
     _error = null;

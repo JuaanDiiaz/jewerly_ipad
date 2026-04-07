@@ -99,9 +99,14 @@ class ApiService {
   /// Centralized response handling
   dynamic _handleResponse(http.Response response) {
     final statusCode = response.statusCode;
-    final body = response.body.isNotEmpty ? jsonDecode(response.body) : null;
+    dynamic body = response.body.isNotEmpty ? jsonDecode(response.body) : null;
 
     if (statusCode >= 200 && statusCode < 300) {
+      // Handle ASP.NET Core ReferenceHandler.Preserve format
+      // Response may be wrapped as {"$id":"1","$values":[...]}
+      if (body is Map && body.containsKey('\$values')) {
+        body = body['\$values'];
+      }
       return body;
     } else if (statusCode == 401) {
       throw UnauthorizedException('Unauthorized: ${body?['message'] ?? 'Invalid credentials'}');

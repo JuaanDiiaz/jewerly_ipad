@@ -95,4 +95,47 @@ class PaymentMethodProvider extends ChangeNotifier {
       return false;
     }
   }
+
+  /// Ensures a "Multiple Payments" payment method exists.
+  /// Returns the ID of the existing or newly created method.
+  Future<int?> ensureMultiplePaymentsMethod() async {
+    // Check if it already exists
+    final existing = _paymentMethods.where((m) {
+      final desc = m.description?.toLowerCase() ?? '';
+      return desc.contains('multiple') || desc.contains('varias') || desc.contains('parcial');
+    }).toList();
+
+    if (existing.isNotEmpty) {
+      return existing.first.id;
+    }
+
+    // Create it
+    try {
+      final response = await _apiService.post('/PaymentMethod', body: {
+        'description': 'Multiple Payments',
+      });
+      if (response != null) {
+        final newMethod = PaymentMethodModel.fromJson(response);
+        _paymentMethods.add(newMethod);
+        notifyListeners();
+        return newMethod.id;
+      }
+    } catch (e) {
+      _error = e.toString();
+      debugPrint('Error creating Multiple Payments method: $e');
+    }
+    return null;
+  }
+
+  /// Find a payment method by description (case-insensitive partial match)
+  PaymentMethodModel? findByDescription(String searchTerm) {
+    final lowerSearch = searchTerm.toLowerCase();
+    try {
+      return _paymentMethods.firstWhere((m) =>
+        (m.description?.toLowerCase() ?? '').contains(lowerSearch)
+      );
+    } catch (_) {
+      return null;
+    }
+  }
 }

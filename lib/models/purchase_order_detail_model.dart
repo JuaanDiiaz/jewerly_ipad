@@ -8,29 +8,33 @@ String purchaseOrderDetailModelToJson(PurchaseOrderDetailModel data) =>
 
 class PurchaseOrderDetailModel {
   int id;
-  int purchaseOrderId;
-  int productId;
-  int quantity;
-  int unitPrice;
-  int total;
+  int? purchaseOrderId;
+  int? productId;
+  int? quantity;
+  double? unitPrice;
+  double? total;
 
   PurchaseOrderDetailModel({
     required this.id,
-    required this.purchaseOrderId,
-    required this.productId,
-    required this.quantity,
-    required this.unitPrice,
-    required this.total,
+    this.purchaseOrderId,
+    this.productId,
+    this.quantity,
+    this.unitPrice,
+    this.total,
   });
 
   factory PurchaseOrderDetailModel.fromJson(Map<String, dynamic> json) =>
       PurchaseOrderDetailModel(
-        id: json["id"],
+        id: json["id"] ?? 0,
         purchaseOrderId: json["purchaseOrderId"],
         productId: json["productId"],
         quantity: json["quantity"],
-        unitPrice: json["unitPrice"],
-        total: json["total"],
+        unitPrice: json["unitPrice"] != null
+            ? (json["unitPrice"] is int ? (json["unitPrice"] as int).toDouble() : json["unitPrice"])
+            : null,
+        total: json["total"] != null
+            ? (json["total"] is int ? (json["total"] as int).toDouble() : json["total"])
+            : null,
       );
 
   Map<String, dynamic> toJson() => {

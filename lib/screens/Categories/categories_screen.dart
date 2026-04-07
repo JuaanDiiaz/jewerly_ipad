@@ -77,7 +77,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<int>(
-                initialValue: _parentCategoryId == 0 && categories.isNotEmpty ? categories.first.id : _parentCategoryId,
+                value: _parentCategoryId == 0 && categories.isNotEmpty ? categories.first.id : _parentCategoryId,
                 decoration: const InputDecoration(
                   labelText: 'Parent Category',
                   border: OutlineInputBorder(),

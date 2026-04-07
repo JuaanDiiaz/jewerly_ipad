@@ -11,6 +11,7 @@ class InventoryModel {
   int? productId;
   String? location;
   dynamic weight;
+  int? quantity;
 
   InventoryModel({
     required this.id,
@@ -18,6 +19,7 @@ class InventoryModel {
     this.productId,
     this.location,
     this.weight,
+    this.quantity,
   });
 
   factory InventoryModel.fromJson(Map<String, dynamic> json) => InventoryModel(
@@ -26,6 +28,7 @@ class InventoryModel {
         productId: json["productId"],
         location: json["location"],
         weight: json["weight"],
+        quantity: json["quantity"],
       );
 
   Map<String, dynamic> toJson() => {
@@ -34,5 +37,6 @@ class InventoryModel {
         "productId": productId,
         "location": location,
         "weight": weight,
+        "quantity": quantity,
       };
 }

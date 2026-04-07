@@ -22,7 +22,7 @@ class InventoryProvider extends ChangeNotifier {
 
     try {
       final response = await _apiService.getWithParams(
-        '/inventory',
+        '/Inventory',
         params: warehouseId != null ? {'warehouse_id': warehouseId} : null,
       );
       _inventory = (response as List)
@@ -43,7 +43,7 @@ class InventoryProvider extends ChangeNotifier {
 
     try {
       final response = await _apiService.getWithParams(
-        '/inventory/movements',
+        '/InventoryMovement',
         params: {
           if (itemId != null) 'item_id': itemId,
           if (fromDate != null) 'from_date': fromDate.toIso8601String(),
@@ -67,7 +67,7 @@ class InventoryProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _apiService.post('/inventory', body: itemData);
+      final response = await _apiService.post('/Inventory', body: itemData);
       if (response != null) {
         _inventory.add(InventoryModel.fromJson(response));
         _isLoading = false;
@@ -90,8 +90,8 @@ class InventoryProvider extends ChangeNotifier {
 
     try {
       final response = await _apiService.put(
-        '/inventory/$id/count',
-        body: {'count': count},
+        '/Inventory/$id',
+        body: {'quantity': count},
       );
       if (response != null) {
         final index = _inventory.indexWhere((i) => i.id == id);
@@ -109,5 +109,18 @@ class InventoryProvider extends ChangeNotifier {
       notifyListeners();
     }
     return false;
+  }
+
+  Future<bool> decrementQuantity(int productId, int warehouseId, int amount) async {
+    // Find inventory by product and warehouse
+    try {
+      final inv = _inventory.firstWhere(
+        (i) => i.productId == productId && i.warehouseId == warehouseId,
+      );
+      final newQuantity = (inv.quantity ?? 0) - amount;
+      return updateInventoryCount(inv.id, newQuantity < 0 ? 0 : newQuantity);
+    } catch (_) {
+      return false;
+    }
   }
 }

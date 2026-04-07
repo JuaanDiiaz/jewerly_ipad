@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:p_a_jewerly/config/environment.dart';
 import 'package:p_a_jewerly/providers/providers.dart';
 import 'package:p_a_jewerly/screens/screens.dart';
+import 'package:p_a_jewerly/theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,6 +25,7 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => LoadingProvider()),
         ChangeNotifierProvider(create: (_) => ProductProvider()),
+        ChangeNotifierProvider(create: (_) => ProductImageProvider()),
         ChangeNotifierProvider(create: (_) => CustomerProvider()),
         ChangeNotifierProvider(create: (_) => InventoryProvider()),
         ChangeNotifierProvider(create: (_) => SalesProvider()),
@@ -36,15 +38,14 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => PriceListDetailProvider()),
         ChangeNotifierProvider(create: (_) => SalesTaxProvider()),
         ChangeNotifierProvider(create: (_) => CustomerPaymentProvider()),
+        ChangeNotifierProvider(create: (_) => ProductCategoryProvider()),
+        ChangeNotifierProvider(create: (_) => PurchaseOrderProvider()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'P&A Jewerly',
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-          useMaterial3: true,
-        ),
-        home: const HomeScreen(),
+        title: 'P&A Jewelry',
+        theme: AppTheme.lightTheme,
+         home: const HomeScreen(),
       ),
     );
   }

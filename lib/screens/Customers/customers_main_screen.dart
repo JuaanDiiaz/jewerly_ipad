@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:p_a_jewerly/providers/customer_provider.dart';
+import 'package:p_a_jewerly/theme/app_theme.dart';
 import 'package:p_a_jewerly/widgets/loading_overlay.dart';
 
 class CustomerMainScreen extends StatefulWidget {
@@ -51,29 +52,56 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
             SingleChildScrollView(
               child: Column(
                 children: [
-                  CustomerHeader(),
+                  const CustomerHeader(),
                   SizedBox(
                     height: isPortrait
                         ? screenHeight * 0.55
                         : screenHeight * 0.7,
                     child: customerProvider.isLoading && customerProvider.customers.isEmpty
-                        ? const Center(child: CircularProgressIndicator())
+                        ? const Center(
+                            child: CircularProgressIndicator(
+                              color: AppTheme.primaryGold,
+                            ),
+                          )
                         : customerProvider.error != null
                             ? AppErrorWidget(
                                 message: customerProvider.error!,
                                 onRetry: () => customerProvider.fetchCustomers(),
                               )
-                            : ListView.builder(
-                                itemCount: customerProvider.customers.length,
-                                itemBuilder: (_, index) {
-                                  return _CustomerItem(
-                                    customer: customerProvider.customers[index],
-                                    onDelete: () {
-                                      customerProvider.deleteCustomer(customerProvider.customers[index].id);
+                            : customerProvider.customers.isEmpty
+                                ? Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.people_outline,
+                                          size: 64,
+                                          color: AppTheme.primaryGold.withOpacity(0.5),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Text(
+                                          'No customers yet',
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            color: AppTheme.subtleText,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : ListView.builder(
+                                    padding: const EdgeInsets.all(16),
+                                    itemCount: customerProvider.customers.length,
+                                    itemBuilder: (_, index) {
+                                      return _CustomerItem(
+                                        customer: customerProvider.customers[index],
+                                        onDelete: () {
+                                          customerProvider.deleteCustomer(
+                                              customerProvider.customers[index].id);
+                                        },
+                                      );
                                     },
-                                  );
-                                },
-                              ),
+                                  ),
                   ),
                 ],
               ),
@@ -118,21 +146,18 @@ class _CustomerItem extends StatelessWidget {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Text('Customer deleted'),
-              action: SnackBarAction(
-                label: 'Undo',
-                onPressed: () {
-                  // Implement undo logic
-                },
-              ),
+              backgroundColor: AppTheme.error,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
           );
         }
       },
       background: Container(
-        margin: const EdgeInsets.all(10),
+        margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: Colors.green,
-          borderRadius: BorderRadius.circular(10),
+          color: AppTheme.success,
+          borderRadius: BorderRadius.circular(12),
         ),
         child: const Row(
           mainAxisAlignment: MainAxisAlignment.start,
@@ -143,48 +168,76 @@ class _CustomerItem extends StatelessWidget {
         ),
       ),
       secondaryBackground: Container(
-        margin: const EdgeInsets.all(10),
+        margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: Colors.red,
-          borderRadius: BorderRadius.circular(10),
+          color: AppTheme.error,
+          borderRadius: BorderRadius.circular(12),
         ),
         child: const Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            SizedBox(width: 20),
             Icon(Icons.delete, color: Colors.white),
+            SizedBox(width: 20),
           ],
         ),
       ),
-      child: Card(
-        margin: const EdgeInsets.all(10),
-        elevation: 5,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: AppTheme.goldBorderDecoration(),
         child: Padding(
-          padding: const EdgeInsets.all(15.0),
+          padding: const EdgeInsets.all(16),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.start,
             children: [
               CircleAvatar(
-                backgroundColor: Colors.amberAccent,
-                radius: 20,
-                child: Text(customer.name[0].toUpperCase()),
+                backgroundColor: AppTheme.primaryGold.withOpacity(0.2),
+                radius: 24,
+                child: Text(
+                  customer.name[0].toUpperCase(),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.deepPurple,
+                    fontSize: 18,
+                  ),
+                ),
               ),
-              const SizedBox(width: 20),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      customer.name,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      customer.name ?? 'Unknown',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                        color: AppTheme.darkText,
+                      ),
                     ),
-                    const SizedBox(height: 10),
-                    Text('Phone: ${customer.phone}'),
-                    const SizedBox(height: 10),
-                    Text('Email: ${customer.email}'),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(Icons.phone, size: 14, color: AppTheme.subtleText),
+                        const SizedBox(width: 4),
+                        Text(
+                          customer.phone ?? 'No phone',
+                          style: TextStyle(color: AppTheme.subtleText, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Icon(Icons.email_outlined, size: 14, color: AppTheme.subtleText),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            customer.email ?? 'No email',
+                            style: TextStyle(color: AppTheme.subtleText, fontSize: 13),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -204,28 +257,19 @@ class CustomerHeader extends StatelessWidget {
     return Container(
       width: double.infinity,
       height: 100,
-      decoration: BoxDecoration(
-        color: Colors.orangeAccent,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 10,
-            offset: Offset(0, 5),
-          ),
-        ],
-      ),
-      child: const Row(
+      decoration: AppTheme.gradientDecoration(),
+      child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.person, size: 40, color: Colors.white),
-          SizedBox(width: 10),
-          Text(
-            'Customer Header',
+          Icon(Icons.people_outline, size: 36, color: AppTheme.primaryGold),
+          const SizedBox(width: 12),
+          const Text(
+            'Customers',
             style: TextStyle(
               fontSize: 24,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w600,
               color: Colors.white,
+              fontFamily: 'PlayfairDisplay',
             ),
           ),
         ],
@@ -280,12 +324,22 @@ class _CreateUserState extends State<CreateUser> {
 
     if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        successSnackBar('Customer created successfully'),
+        SnackBar(
+          content: const Text('Customer created successfully'),
+          backgroundColor: AppTheme.success,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
       );
       widget.onClear();
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        errorSnackBar(customerProvider.error ?? 'Failed to create customer'),
+        SnackBar(
+          content: Text(customerProvider.error ?? 'Failed to create customer'),
+          backgroundColor: AppTheme.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
       );
     }
   }
@@ -299,12 +353,12 @@ class _CreateUserState extends State<CreateUser> {
       padding: EdgeInsets.all(screenWidth > 800 ? 20 : 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
+            color: AppTheme.deepPurple.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, -5),
           ),
         ],
       ),
@@ -313,42 +367,60 @@ class _CreateUserState extends State<CreateUser> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Add a new customer',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Text(
+              'Add New Customer',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.darkText,
+                fontFamily: 'PlayfairDisplay',
+              ),
             ),
-            const SizedBox(height: 15),
+            const SizedBox(height: 16),
             if (widget.isPortrait && screenWidth > 600)
-              // Landscape-style layout in portrait for wider iPads
               Row(
                 children: [
                   Expanded(child: _buildNameField()),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 12),
                   Expanded(child: _buildEmailField()),
                 ],
               )
             else
               _buildNameField(),
             if (!widget.isPortrait || screenWidth <= 600) ...[
-              const SizedBox(height: 15),
+              const SizedBox(height: 12),
               _buildEmailField(),
             ],
-            const SizedBox(height: 15),
+            const SizedBox(height: 12),
             _buildPhoneField(),
-            const SizedBox(height: 15),
+            const SizedBox(height: 16),
             Consumer<CustomerProvider>(
               builder: (context, provider, _) {
                 return SizedBox(
                   width: double.infinity,
-                  child: OutlinedButton(
+                  child: ElevatedButton(
                     onPressed: provider.isLoading ? null : _saveCustomer,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryGold,
+                      foregroundColor: AppTheme.darkText,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
                     child: provider.isLoading
                         ? const SizedBox(
                             height: 20,
                             width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppTheme.darkText,
+                            ),
                           )
-                        : const Text('Save'),
+                        : const Text(
+                            'Save Customer',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                          ),
                   ),
                 );
               },
@@ -364,10 +436,12 @@ class _CreateUserState extends State<CreateUser> {
       controller: widget.nameController,
       autocorrect: false,
       keyboardType: TextInputType.text,
-      decoration: const InputDecoration(
+      decoration: InputDecoration(
         labelText: 'Name',
-        border: OutlineInputBorder(),
-        prefixIcon: Icon(Icons.person),
+        prefixIcon: const Icon(Icons.person_outline),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
       ),
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
@@ -386,10 +460,12 @@ class _CreateUserState extends State<CreateUser> {
       controller: widget.emailController,
       autocorrect: false,
       keyboardType: TextInputType.emailAddress,
-      decoration: const InputDecoration(
+      decoration: InputDecoration(
         labelText: 'Email',
-        border: OutlineInputBorder(),
-        prefixIcon: Icon(Icons.email),
+        prefixIcon: const Icon(Icons.email_outlined),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
       ),
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
@@ -408,17 +484,19 @@ class _CreateUserState extends State<CreateUser> {
       controller: widget.phoneController,
       autocorrect: false,
       keyboardType: TextInputType.phone,
-      decoration: const InputDecoration(
+      decoration: InputDecoration(
         labelText: 'Phone',
-        border: OutlineInputBorder(),
-        prefixIcon: Icon(Icons.phone),
+        prefixIcon: const Icon(Icons.phone_outlined),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
       ),
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
           return 'Phone is required';
         }
         if (!_validatePhone(value.trim())) {
-          return 'Please enter a valid phone number (8-15 digits)';
+          return 'Please enter a valid phone (8-15 digits)';
         }
         return null;
       },

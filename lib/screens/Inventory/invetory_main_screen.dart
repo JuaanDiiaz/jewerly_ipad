@@ -3,11 +3,14 @@ import 'package:provider/provider.dart';
 import 'package:p_a_jewerly/providers/inventory_provider.dart';
 import 'package:p_a_jewerly/providers/warehouse_provider.dart';
 import 'package:p_a_jewerly/providers/product_provider.dart';
+import 'package:p_a_jewerly/theme/app_theme.dart';
 import 'package:p_a_jewerly/widgets/loading_overlay.dart';
 
 class InventoryMainScreen extends StatefulWidget {
+  const InventoryMainScreen({super.key});
+
   @override
-  _InventoryMainScreenState createState() => _InventoryMainScreenState();
+  State<InventoryMainScreen> createState() => _InventoryMainScreenState();
 }
 
 class _InventoryMainScreenState extends State<InventoryMainScreen> {
@@ -45,81 +48,119 @@ class _InventoryMainScreenState extends State<InventoryMainScreen> {
     final warehouses = context.watch<WarehouseProvider>().warehouses;
     final products = context.watch<ProductProvider>().products;
 
-    return AlertDialog(
-      title: Text(inventoryItem == null ? 'Add Inventory Item' : 'Edit Inventory Item'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<int>(
-                value: inventoryItem?.productId ?? (products.isNotEmpty ? products.first.id : null),
-                decoration: const InputDecoration(
-                  labelText: 'Product',
-                  border: OutlineInputBorder(),
-                ),
-                items: products.map((p) {
-                  return DropdownMenuItem(
-                    value: p.id,
-                    child: Text(p.description ?? 'Product ${p.id}'),
-                  );
-                }).toList(),
-                onChanged: (value) {},
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Container(
+        width: 400,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: AppTheme.gradientDecoration(radius: 12),
+              child: Row(
+                children: [
+                  Icon(Icons.inventory_2_outlined, color: AppTheme.primaryGold, size: 24),
+                  const SizedBox(width: 12),
+                  Text(
+                    inventoryItem == null ? 'Add Inventory Item' : 'Edit Inventory Item',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<int>(
-                value: inventoryItem?.warehouseId ?? (warehouses.isNotEmpty ? warehouses.first.id : null),
-                decoration: const InputDecoration(
-                  labelText: 'Warehouse',
-                  border: OutlineInputBorder(),
-                ),
-                items: warehouses.map((w) {
-                  return DropdownMenuItem(
-                    value: w.id,
-                    child: Text(w.name ?? 'Warehouse ${w.id}'),
-                  );
-                }).toList(),
-                onChanged: (value) {},
+            ),
+            const SizedBox(height: 24),
+            Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  DropdownButtonFormField<int>(
+                    value: inventoryItem?.productId ?? (products.isNotEmpty ? products.first.id : null),
+                    decoration: InputDecoration(
+                      labelText: 'Product',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    items: products.map((p) {
+                      return DropdownMenuItem(
+                        value: p.id,
+                        child: Text(p.description ?? 'Product ${p.id}'),
+                      );
+                    }).toList(),
+                    onChanged: (value) {},
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<int>(
+                    value: inventoryItem?.warehouseId ?? (warehouses.isNotEmpty ? warehouses.first.id : null),
+                    decoration: InputDecoration(
+                      labelText: 'Warehouse',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    items: warehouses.map((w) {
+                      return DropdownMenuItem(
+                        value: w.id,
+                        child: Text(w.name ?? 'Warehouse ${w.id}'),
+                      );
+                    }).toList(),
+                    onChanged: (value) {},
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _locationController,
+                    decoration: InputDecoration(
+                      labelText: 'Location',
+                      hintText: 'e.g., A-01-01',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Location is required';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _weightController,
+                    decoration: InputDecoration(
+                      labelText: 'Weight (g)',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _locationController,
-                decoration: const InputDecoration(
-                  labelText: 'Location',
-                  border: OutlineInputBorder(),
-                  hintText: 'e.g., A-01-01',
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
                 ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Location is required';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _weightController,
-                decoration: const InputDecoration(
-                  labelText: 'Weight',
-                  border: OutlineInputBorder(),
+                const SizedBox(width: 12),
+                ElevatedButton(
+                  onPressed: _saveInventory,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryGold,
+                    foregroundColor: AppTheme.darkText,
+                  ),
+                  child: const Text('Save'),
                 ),
-                keyboardType: TextInputType.number,
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: _saveInventory,
-          child: const Text('Save'),
-        ),
-      ],
     );
   }
 
@@ -140,56 +181,49 @@ class _InventoryMainScreenState extends State<InventoryMainScreen> {
     if (mounted) {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        success
-            ? successSnackBar('Inventory item ${_editingId == null ? 'created' : 'updated'}')
-            : errorSnackBar(provider.error ?? 'Operation failed'),
+        SnackBar(
+          content: Text(success
+              ? 'Inventory item ${_editingId == null ? 'created' : 'updated'}'
+              : (provider.error ?? 'Operation failed')),
+          backgroundColor: success ? AppTheme.success : AppTheme.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
       );
     }
   }
 
-  void _confirmDelete(int id) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Delete Inventory Item'),
-        content: const Text('Are you sure? This cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // Note: You may need to add a delete method to the provider
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Inventory'),
-        backgroundColor: Colors.amber[700],
+        flexibleSpace: Container(
+          decoration: AppTheme.gradientDecoration(),
+        ),
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.deepPurple.withOpacity(0.05),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
             child: Consumer<WarehouseProvider>(
               builder: (context, warehouseProvider, _) {
                 return DropdownButtonFormField<int>(
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Filter by Warehouse',
-                    border: OutlineInputBorder(),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    filled: true,
+                    fillColor: AppTheme.cream,
                   ),
                   value: _selectedWarehouseId,
                   items: [
@@ -219,7 +253,9 @@ class _InventoryMainScreenState extends State<InventoryMainScreen> {
             child: Consumer<InventoryProvider>(
               builder: (context, provider, _) {
                 if (provider.isLoading && provider.inventory.isEmpty) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const Center(
+                    child: CircularProgressIndicator(color: AppTheme.primaryGold),
+                  );
                 }
                 if (provider.error != null) {
                   return AppErrorWidget(
@@ -228,13 +264,16 @@ class _InventoryMainScreenState extends State<InventoryMainScreen> {
                   );
                 }
                 if (provider.inventory.isEmpty) {
-                  return const Center(
+                  return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey),
-                        SizedBox(height: 16),
-                        Text('No inventory items', style: TextStyle(fontSize: 18, color: Colors.grey)),
+                        Icon(Icons.inventory_2_outlined, size: 64, color: AppTheme.primaryGold.withOpacity(0.5)),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No inventory items',
+                          style: TextStyle(fontSize: 18, color: AppTheme.subtleText),
+                        ),
                       ],
                     ),
                   );
@@ -244,22 +283,51 @@ class _InventoryMainScreenState extends State<InventoryMainScreen> {
                   itemCount: provider.inventory.length,
                   itemBuilder: (context, index) {
                     final item = provider.inventory[index];
-                    return Card(
+                    final products = context.watch<ProductProvider>().products;
+                    final product = products.where((p) => p.id == item.productId).firstOrNull;
+                    final productName = product?.description ?? 'Product #${item.productId}';
+                    return Container(
                       margin: const EdgeInsets.only(bottom: 12),
+                      decoration: AppTheme.goldBorderDecoration(),
                       child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: Colors.blue[100],
-                          child: const Icon(Icons.inventory, color: Colors.blue),
+                        leading: Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryGold.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(Icons.inventory_2_outlined, color: AppTheme.primaryGold),
                         ),
-                        title: Text('Product ${item.productId}'),
-                        subtitle: Text('Warehouse ${item.warehouseId} • Location: ${item.location}'),
+                        title: Text(
+                          productName,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Text(
+                          'WH #${item.warehouseId} • ${item.location}',
+                          style: TextStyle(color: AppTheme.subtleText),
+                        ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text('${item.weight ?? 0} kg', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: AppTheme.success.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                '${item.weight ?? 0} g',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.success,
+                                ),
+                              ),
+                            ),
                             IconButton(
-                              icon: const Icon(Icons.edit),
+                              icon: const Icon(Icons.edit_outlined),
                               onPressed: () => _openDialog(inventoryItem: item),
+                              color: AppTheme.mediumPurple,
                             ),
                           ],
                         ),
@@ -276,7 +344,8 @@ class _InventoryMainScreenState extends State<InventoryMainScreen> {
         onPressed: () => _openDialog(),
         icon: const Icon(Icons.add),
         label: const Text('New Item'),
-        backgroundColor: Colors.amber[700],
+        backgroundColor: AppTheme.primaryGold,
+        foregroundColor: AppTheme.darkText,
       ),
     );
   }
