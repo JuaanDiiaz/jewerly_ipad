@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:p_a_jewerly/providers/supplier_provider.dart';
 import 'package:p_a_jewerly/models/supplier_model.dart';
+import 'package:p_a_jewerly/widgets/base_screen.dart';
 import 'package:p_a_jewerly/widgets/loading_overlay.dart';
 
 class SuppliersScreen extends StatefulWidget {
@@ -12,12 +13,6 @@ class SuppliersScreen extends StatefulWidget {
 }
 
 class _SuppliersScreenState extends State<SuppliersScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _clientNumberController = TextEditingController();
-  final _shipViaController = TextEditingController();
-  int? _editingId;
-
   @override
   void initState() {
     super.initState();
@@ -26,129 +21,36 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
     });
   }
 
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _clientNumberController.dispose();
-    _shipViaController.dispose();
-    super.dispose();
-  }
-
   void _openDialog({SupplierModel? supplier}) {
-    _editingId = supplier?.id;
-    _nameController.text = supplier?.name ?? '';
-    _clientNumberController.text = supplier?.clientNumber ?? '';
-    _shipViaController.text = supplier?.shipVia ?? '';
-    showDialog(context: context, builder: (_) => _buildDialog(supplier));
-  }
-
-  Widget _buildDialog(SupplierModel? supplier) {
-    return AlertDialog(
-      title: Text(supplier == null ? 'Add Supplier' : 'Edit Supplier'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Supplier Name',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Name is required';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _clientNumberController,
-                decoration: const InputDecoration(
-                  labelText: 'Client Number',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _shipViaController,
-                decoration: const InputDecoration(
-                  labelText: 'Ship Via',
-                  border: OutlineInputBorder(),
-                  hintText: 'e.g., FedEx, UPS, DHL',
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: _saveSupplier,
-          child: const Text('Save'),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _saveSupplier() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    final supplier = SupplierModel(
-      id: _editingId ?? 0,
-      name: _nameController.text.trim(),
-      clientNumber: _clientNumberController.text.trim(),
-      shipVia: _shipViaController.text.trim(),
-    );
-
-    final provider = context.read<SupplierProvider>();
-    bool success;
-
-    if (_editingId == null) {
-      success = await provider.createSupplier(supplier);
-    } else {
-      success = await provider.updateSupplier(supplier);
-    }
-
-    if (mounted) {
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        success
-            ? successSnackBar('Supplier ${_editingId == null ? 'created' : 'updated'}')
-            : errorSnackBar(provider.error ?? 'Operation failed'),
-      );
-    }
-  }
-
-  void _confirmDelete(int id, String name) {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Delete Supplier'),
-        content: Text('Are you sure you want to delete "$name"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              context.read<SupplierProvider>().deleteSupplier(id);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete', style: TextStyle(color: Colors.white)),
-          ),
-        ],
+      builder: (_) => _SupplierDialog(
+        supplier: supplier,
+        onSave: (updatedSupplier) async {
+          final provider = context.read<SupplierProvider>();
+          bool success;
+          if (supplier == null) {
+            success = await provider.createSupplier(updatedSupplier);
+          } else {
+            success = await provider.updateSupplier(updatedSupplier);
+          }
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              success
+                  ? successSnackBar('Supplier ${supplier == null ? 'created' : 'updated'}')
+                  : errorSnackBar(provider.error ?? 'Operation failed'),
+            );
+          }
+        },
       ),
     );
+  }
+
+  void _confirmDelete(int id, String name) async {
+    final confirmed = await confirmDelete(context, name, 'Supplier');
+    if (confirmed && mounted) {
+      context.read<SupplierProvider>().deleteSupplier(id);
+    }
   }
 
   @override
@@ -156,7 +58,15 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Suppliers'),
-        backgroundColor: Colors.amber[700],
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF2D1B4E), Color(0xFF4A3266)],
+            ),
+          ),
+        ),
       ),
       body: Consumer<SupplierProvider>(
         builder: (context, provider, _) {
@@ -164,23 +74,29 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (provider.error != null) {
-            return AppErrorWidget(
-              message: provider.error!,
-              onRetry: () => provider.fetchSuppliers(),
-            );
-          }
-          if (provider.suppliers.isEmpty) {
-            return const Center(
+            return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.business_outlined, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text('No suppliers yet', style: TextStyle(fontSize: 18, color: Colors.grey)),
+                  Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+                  const SizedBox(height: 16),
+                  Text(provider.error!, textAlign: TextAlign.center),
+                  ElevatedButton(
+                    onPressed: () => provider.fetchSuppliers(),
+                    child: const Text('Retry'),
+                  ),
                 ],
               ),
             );
           }
+          if (provider.suppliers.isEmpty) {
+            return const EmptyState(
+              icon: Icons.business_outlined,
+              title: 'No suppliers yet',
+              subtitle: 'Tap + to add a supplier',
+            );
+          }
+
           return ListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: provider.suppliers.length,
@@ -213,6 +129,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                       IconButton(
                         icon: const Icon(Icons.delete),
                         onPressed: () => _confirmDelete(supplier.id, supplier.name ?? ''),
+                        color: Colors.red,
                       ),
                     ],
                   ),
@@ -226,8 +143,90 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
         onPressed: () => _openDialog(),
         icon: const Icon(Icons.add),
         label: const Text('New Supplier'),
-        backgroundColor: Colors.amber[700],
+        backgroundColor: const Color(0xFFD4AF37),
       ),
+    );
+  }
+}
+
+class _SupplierDialog extends StatefulWidget {
+  final SupplierModel? supplier;
+  final Function(SupplierModel) onSave;
+
+  const _SupplierDialog({required this.supplier, required this.onSave});
+
+  @override
+  State<_SupplierDialog> createState() => _SupplierDialogState();
+}
+
+class _SupplierDialogState extends State<_SupplierDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameController;
+  late final TextEditingController _clientNumberController;
+  late final TextEditingController _shipViaController;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.supplier?.name ?? '');
+    _clientNumberController = TextEditingController(text: widget.supplier?.clientNumber ?? '');
+    _shipViaController = TextEditingController(text: widget.supplier?.shipVia ?? '');
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _clientNumberController.dispose();
+    _shipViaController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.supplier == null ? 'Add Supplier' : 'Edit Supplier'),
+      content: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: _nameController,
+                decoration: const InputDecoration(labelText: 'Supplier Name', border: OutlineInputBorder()),
+                validator: (value) => value == null || value.trim().isEmpty ? 'Name is required' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _clientNumberController,
+                decoration: const InputDecoration(labelText: 'Client Number', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _shipViaController,
+                decoration: const InputDecoration(labelText: 'Ship Via', border: OutlineInputBorder(), hintText: 'e.g., FedEx, UPS'),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        ElevatedButton(
+          onPressed: () {
+            if (_formKey.currentState!.validate()) {
+              Navigator.pop(context);
+              widget.onSave(SupplierModel(
+                id: widget.supplier?.id ?? 0,
+                name: _nameController.text.trim(),
+                clientNumber: _clientNumberController.text.trim(),
+                shipVia: _shipViaController.text.trim(),
+              ));
+            }
+          },
+          child: const Text('Save'),
+        ),
+      ],
     );
   }
 }

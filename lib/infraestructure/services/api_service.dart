@@ -3,9 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:p_a_jewerly/config/environment.dart';
 
 class ApiService {
-  final String baseUrl;
-
-  ApiService._internal() : baseUrl = Environment.baseUrl;
+  ApiService._internal();
 
   static final ApiService _instance = ApiService._internal();
 
@@ -15,10 +13,12 @@ class ApiService {
     return _instance;
   }
 
+  String get _baseUrl => Environment.baseUrl;
+
   /// Método GET para un recurso específico
   Future<dynamic> get(String endpoint, {Map<String, String>? headers}) async {
     final response = await http.get(
-      Uri.parse('$baseUrl$endpoint'),
+      Uri.parse('$_baseUrl$endpoint'),
       headers: headers,
     );
     return _handleResponse(response);
@@ -28,7 +28,7 @@ class ApiService {
   Future<dynamic> getAll(String endpoint,
       {Map<String, String>? headers}) async {
     final response = await http.get(
-      Uri.parse('$baseUrl$endpoint'),
+      Uri.parse('$_baseUrl$endpoint'),
       headers: headers,
     );
     return _handleResponse(response);
@@ -38,7 +38,7 @@ class ApiService {
   Future<dynamic> post(String endpoint,
       {Map<String, String>? headers, dynamic body}) async {
     final response = await http.post(
-      Uri.parse('$baseUrl$endpoint'),
+      Uri.parse('$_baseUrl$endpoint'),
       headers: headers ?? {"Content-Type": "application/json"},
       body: jsonEncode(body),
     );
@@ -49,7 +49,7 @@ class ApiService {
   Future<dynamic> put(String endpoint,
       {Map<String, String>? headers, dynamic body}) async {
     final response = await http.put(
-      Uri.parse('$baseUrl$endpoint'),
+      Uri.parse('$_baseUrl$endpoint'),
       headers: headers ?? {"Content-Type": "application/json"},
       body: jsonEncode(body),
     );
@@ -60,7 +60,7 @@ class ApiService {
   Future<dynamic> delete(String endpoint,
       {Map<String, String>? headers}) async {
     final response = await http.delete(
-      Uri.parse('$baseUrl$endpoint'),
+      Uri.parse('$_baseUrl$endpoint'),
       headers: headers,
     );
     return _handleResponse(response);
@@ -69,7 +69,7 @@ class ApiService {
   /// GET with query parameters
   Future<dynamic> getWithParams(String endpoint,
       {Map<String, String>? params, Map<String, String>? headers}) async {
-    final uri = Uri.parse('$baseUrl$endpoint').replace(queryParameters: params ?? {});
+    final uri = Uri.parse('$_baseUrl$endpoint').replace(queryParameters: params ?? {});
     final response = await http.get(uri, headers: headers);
     return _handleResponse(response);
   }
@@ -78,7 +78,7 @@ class ApiService {
   Future<dynamic> postFormData(String endpoint,
       {Map<String, String>? headers, Map<String, dynamic>? formData}) async {
     final response = await http.post(
-      Uri.parse('$baseUrl$endpoint'),
+      Uri.parse('$_baseUrl$endpoint'),
       headers: headers ?? {"Content-Type": "application/x-www-form-urlencoded"},
       body: formData,
     );
@@ -89,7 +89,7 @@ class ApiService {
   Future<dynamic> putMultipart(String endpoint,
       {Map<String, String>? headers, Map<String, dynamic>? body}) async {
     final response = await http.put(
-      Uri.parse('$baseUrl$endpoint'),
+      Uri.parse('$_baseUrl$endpoint'),
       headers: headers ?? {"Content-Type": "application/json"},
       body: jsonEncode(body),
     );

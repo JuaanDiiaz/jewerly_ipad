@@ -197,6 +197,16 @@ class SalesProvider extends ChangeNotifier {
           'notes': 'Sale by $_salespersonName',
         };
         await _apiService.post('/InventoryMovement', body: movementData);
+
+        // Also update the inventory quantity directly
+        await _apiService.put(
+          '/Inventory/UpdateQuantity',
+          body: {
+            'productId': item.productId,
+            'warehouseId': _selectedWarehouseId ?? 1,
+            'quantityChange': -item.quantity,
+          },
+        );
       }
 
       clearCart();

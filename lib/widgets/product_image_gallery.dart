@@ -31,6 +31,7 @@ class ProductImageGallery extends StatefulWidget {
 class _ProductImageGalleryState extends State<ProductImageGallery> {
   int _selectedIndex = 0;
   final _imagePicker = ImagePicker();
+  final _pageController = PageController();
   bool _isAddingImage = false;
   List<String> _localImages = []; // For new products, store local paths
 
@@ -41,12 +42,19 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
   }
 
   @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
   void didUpdateWidget(ProductImageGallery oldWidget) {
     super.didUpdateWidget(oldWidget);
     // Reset local images when switching to a different product
     if (oldWidget.productId != widget.productId) {
       _localImages = List.from(widget.existingImageUrls);
       _selectedIndex = 0;
+      _pageController.jumpToPage(0);
     }
   }
 
@@ -210,8 +218,9 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
             child: Center(
               child: GestureDetector(
                 onTap: () {
-                  // Navigate left - implemented via PageController would be better
-                  // For simplicity, we just indicate there's navigation
+                  if (_selectedIndex > 0) {
+                    _pageController.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+                  }
                 },
                 child: Container(
                   padding: const EdgeInsets.all(8),
@@ -231,7 +240,9 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
             child: Center(
               child: GestureDetector(
                 onTap: () {
-                  // Navigate right
+                  if (_selectedIndex < images.length - 1) {
+                    _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+                  }
                 },
                 child: Container(
                   padding: const EdgeInsets.all(8),
