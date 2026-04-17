@@ -1868,6 +1868,16 @@ class _OrderDetailsSheetState extends State<_OrderDetailsSheet> {
         'notes': 'Received from purchase order #${widget.order.id}',
       };
       await apiService.post('/InventoryMovement', body: movementData);
+
+      // Also update the inventory quantity directly
+      await apiService.put(
+        '/Inventory/UpdateQuantity',
+        body: {
+          'productId': detail.productId,
+          'warehouseId': warehouseId,
+          'quantityChange': detail.quantity,
+        },
+      );
     }
   }
 }

@@ -13,6 +13,9 @@ Future<void> main() async {
   await dotenv.load(fileName: '.env');
   Environment.initialize();
 
+  // Load cached API URL from shared_preferences before app starts
+  await Environment.refreshBaseUrl();
+
   runApp(const MyApp());
 }
 
@@ -24,6 +27,7 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => LoadingProvider()),
+        ChangeNotifierProvider(create: (_) => ApiConfigProvider()),
         ChangeNotifierProvider(create: (_) => ProductProvider()),
         ChangeNotifierProvider(create: (_) => ProductImageProvider()),
         ChangeNotifierProvider(create: (_) => CustomerProvider()),
@@ -45,7 +49,7 @@ class MyApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         title: 'P&A Jewelry',
         theme: AppTheme.lightTheme,
-         home: const HomeScreen(),
+        home: const HomeScreen(),
       ),
     );
   }

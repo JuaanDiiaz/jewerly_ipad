@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:p_a_jewerly/providers/category_provider.dart';
 import 'package:p_a_jewerly/models/category_model.dart';
+import 'package:p_a_jewerly/widgets/base_screen.dart';
 import 'package:p_a_jewerly/widgets/loading_overlay.dart';
 
 class CategoriesScreen extends StatefulWidget {
@@ -41,79 +42,16 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     _categoryNumberController.text = category?.categoryNumber ?? '';
     _extraInfoController.text = category?.extraInformation ?? '';
     _parentCategoryId = category?.idParentCategory ?? 0;
-    showDialog(context: context, builder: (_) => _buildDialog(category));
-  }
-
-  Widget _buildDialog(CategoryModel? category) {
-    final categories = context.watch<CategoryProvider>().categories;
-    return AlertDialog(
-      title: Text(category == null ? 'Add Category' : 'Edit Category'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'Description',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Required';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _categoryNumberController,
-                decoration: const InputDecoration(
-                  labelText: 'Category Number',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<int>(
-                value: _parentCategoryId == 0 && categories.isNotEmpty ? categories.first.id : _parentCategoryId,
-                decoration: const InputDecoration(
-                  labelText: 'Parent Category',
-                  border: OutlineInputBorder(),
-                ),
-                items: [
-                  const DropdownMenuItem(value: 0, child: Text('None (Root)')),
-                  ...categories.where((c) => c.id != category?.id).map((c) {
-                    return DropdownMenuItem(value: c.id, child: Text(c.description ?? 'Category ${c.id}'));
-                  }),
-                ],
-                onChanged: (value) => _parentCategoryId = value ?? 0,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _extraInfoController,
-                decoration: const InputDecoration(
-                  labelText: 'Extra Information',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 2,
-              ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: _saveCategory,
-          child: const Text('Save'),
-        ),
-      ],
-    );
+    showDialog(context: context, builder: (_) => _CategoryDialog(
+      formKey: _formKey,
+      descriptionController: _descriptionController,
+      categoryNumberController: _categoryNumberController,
+      extraInfoController: _extraInfoController,
+      parentCategoryId: _parentCategoryId,
+      editingId: _editingId,
+      onSave: _saveCategory,
+      allCategories: context.read<CategoryProvider>().categories,
+    ));
   }
 
   Future<void> _saveCategory() async {
@@ -146,28 +84,11 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     }
   }
 
-  void _confirmDelete(int id) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Delete Category'),
-        content: const Text('Are you sure? This cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              context.read<CategoryProvider>().deleteCategory(id);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
+  void _confirmDelete(int id, String name) async {
+    final confirmed = await confirmDelete(context, name, 'Category');
+    if (confirmed && mounted) {
+      context.read<CategoryProvider>().deleteCategory(id);
+    }
   }
 
   @override
@@ -175,7 +96,15 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Categories'),
-        backgroundColor: Colors.amber[700],
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF2D1B4E), Color(0xFF4A3266)],
+            ),
+          ),
+        ),
       ),
       body: Consumer<CategoryProvider>(
         builder: (context, provider, _) {
@@ -183,23 +112,29 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (provider.error != null) {
-            return AppErrorWidget(
-              message: provider.error!,
-              onRetry: () => provider.fetchCategories(),
-            );
-          }
-          if (provider.categories.isEmpty) {
-            return const Center(
+            return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.category_outlined, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text('No categories yet', style: TextStyle(fontSize: 18, color: Colors.grey)),
+                  Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+                  const SizedBox(height: 16),
+                  Text(provider.error!, textAlign: TextAlign.center),
+                  ElevatedButton(
+                    onPressed: () => provider.fetchCategories(),
+                    child: const Text('Retry'),
+                  ),
                 ],
               ),
             );
           }
+          if (provider.categories.isEmpty) {
+            return const EmptyState(
+              icon: Icons.category_outlined,
+              title: 'No categories yet',
+              subtitle: 'Tap + to add your first category',
+            );
+          }
+
           return ListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: provider.categories.length,
@@ -213,8 +148,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                 margin: const EdgeInsets.only(bottom: 12),
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: category.idParentCategory == 0 ? Colors.amber[100] : Colors.blue[100],
-                    child: Icon(category.idParentCategory == 0 ? Icons.folder : Icons.subdirectory_arrow_right),
+                    backgroundColor: category.idParentCategory == 0
+                        ? const Color(0xFFD4AF37).withOpacity(0.2)
+                        : Colors.blue[100],
+                    child: Icon(
+                      category.idParentCategory == 0 ? Icons.folder : Icons.subdirectory_arrow_right,
+                      color: category.idParentCategory == 0 ? const Color(0xFFD4AF37) : Colors.blue,
+                    ),
                   ),
                   title: Text(category.description ?? 'Category ${category.id}'),
                   subtitle: Column(
@@ -227,13 +167,11 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit),
-                        onPressed: () => _openDialog(category: category),
-                      ),
+                      IconButton(icon: const Icon(Icons.edit), onPressed: () => _openDialog(category: category)),
                       IconButton(
                         icon: const Icon(Icons.delete),
-                        onPressed: () => _confirmDelete(category.id),
+                        onPressed: () => _confirmDelete(category.id, category.description ?? ''),
+                        color: Colors.red,
                       ),
                     ],
                   ),
@@ -247,8 +185,84 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         onPressed: () => _openDialog(),
         icon: const Icon(Icons.add),
         label: const Text('New Category'),
-        backgroundColor: Colors.amber[700],
+        backgroundColor: const Color(0xFFD4AF37),
       ),
+    );
+  }
+}
+
+class _CategoryDialog extends StatelessWidget {
+  final GlobalKey<FormState> formKey;
+  final TextEditingController descriptionController;
+  final TextEditingController categoryNumberController;
+  final TextEditingController extraInfoController;
+  final int parentCategoryId;
+  final int? editingId;
+  final VoidCallback onSave;
+  final List<CategoryModel> allCategories;
+
+  const _CategoryDialog({
+    required this.formKey,
+    required this.descriptionController,
+    required this.categoryNumberController,
+    required this.extraInfoController,
+    required this.parentCategoryId,
+    required this.editingId,
+    required this.onSave,
+    required this.allCategories,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    int localParentId = parentCategoryId;
+    return AlertDialog(
+      title: Text(editingId == null ? 'Add Category' : 'Edit Category'),
+      content: SingleChildScrollView(
+        child: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: descriptionController,
+                decoration: const InputDecoration(labelText: 'Description', border: OutlineInputBorder()),
+                validator: (value) => value == null || value.trim().isEmpty ? 'Required' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: categoryNumberController,
+                decoration: const InputDecoration(labelText: 'Category Number', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              StatefulBuilder(
+                builder: (context, setState) => DropdownButtonFormField<int>(
+                  value: localParentId == 0 && allCategories.isNotEmpty
+                      ? allCategories.first.id
+                      : localParentId,
+                  decoration: const InputDecoration(labelText: 'Parent Category', border: OutlineInputBorder()),
+                  items: [
+                    const DropdownMenuItem(value: 0, child: Text('None (Root)')),
+                    ...allCategories.where((c) => c.id != editingId).map((c) {
+                      return DropdownMenuItem(value: c.id, child: Text(c.description ?? 'Category ${c.id}'));
+                    }),
+                  ],
+                  onChanged: (value) => localParentId = value ?? 0,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: extraInfoController,
+                decoration: const InputDecoration(labelText: 'Extra Information', border: OutlineInputBorder()),
+                maxLines: 2,
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        ElevatedButton(onPressed: onSave, child: const Text('Save')),
+      ],
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:p_a_jewerly/providers/payment_method_provider.dart';
+import 'package:p_a_jewerly/widgets/base_screen.dart';
 import 'package:p_a_jewerly/widgets/loading_overlay.dart';
 
 class PaymentMethodsScreen extends StatefulWidget {
@@ -11,10 +12,6 @@ class PaymentMethodsScreen extends StatefulWidget {
 }
 
 class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _descriptionController = TextEditingController();
-  int? _editingId;
-
   @override
   void initState() {
     super.initState();
@@ -23,95 +20,38 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
     });
   }
 
-  @override
-  void dispose() {
-    _descriptionController.dispose();
-    super.dispose();
-  }
-
   void _openDialog({int? id, String? description}) {
-    _editingId = id;
-    _descriptionController.text = description ?? '';
-    showDialog(context: context, builder: (_) => _buildDialog());
-  }
-
-  Widget _buildDialog() {
-    return AlertDialog(
-      title: Text(_editingId == null ? 'Add Payment Method' : 'Edit Payment Method'),
-      content: Form(
-        key: _formKey,
-        child: TextFormField(
-          controller: _descriptionController,
-          decoration: const InputDecoration(
-            labelText: 'Description',
-            border: OutlineInputBorder(),
-          ),
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'Description is required';
-            }
-            return null;
-          },
-          autofocus: true,
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: _savePaymentMethod,
-          child: const Text('Save'),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _savePaymentMethod() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    final provider = context.read<PaymentMethodProvider>();
-    bool success;
-
-    if (_editingId == null) {
-      success = await provider.createPaymentMethod(_descriptionController.text.trim());
-    } else {
-      success = await provider.updatePaymentMethod(_editingId!, _descriptionController.text.trim());
-    }
-
-    if (mounted) {
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        success
-            ? successSnackBar('Payment method ${_editingId == null ? 'created' : 'updated'}')
-            : errorSnackBar(provider.error ?? 'Operation failed'),
-      );
-    }
-  }
-
-  void _confirmDelete(int id, String description) {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Delete Payment Method'),
-        content: Text('Are you sure you want to delete "$description"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              context.read<PaymentMethodProvider>().deletePaymentMethod(id);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete', style: TextStyle(color: Colors.white)),
-          ),
-        ],
+      builder: (_) => FormDialog(
+        title: id == null ? 'Add Payment Method' : 'Edit Payment Method',
+        labelText: 'Description',
+        initialValue: description,
+        onSave: (value) async {
+          final provider = context.read<PaymentMethodProvider>();
+          bool success;
+          if (id == null) {
+            success = await provider.createPaymentMethod(value);
+          } else {
+            success = await provider.updatePaymentMethod(id, value);
+          }
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              success
+                  ? successSnackBar('Payment method ${id == null ? 'created' : 'updated'}')
+                  : errorSnackBar(provider.error ?? 'Operation failed'),
+            );
+          }
+        },
       ),
     );
+  }
+
+  void _confirmDelete(int id, String description) async {
+    final confirmed = await confirmDelete(context, description, 'Payment Method');
+    if (confirmed && mounted) {
+      context.read<PaymentMethodProvider>().deletePaymentMethod(id);
+    }
   }
 
   @override
@@ -119,7 +59,15 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Payment Methods'),
-        backgroundColor: Colors.amber[700],
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF2D1B4E), Color(0xFF4A3266)],
+            ),
+          ),
+        ),
       ),
       body: Consumer<PaymentMethodProvider>(
         builder: (context, provider, _) {
@@ -127,23 +75,29 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (provider.error != null) {
-            return AppErrorWidget(
-              message: provider.error!,
-              onRetry: () => provider.fetchPaymentMethods(),
-            );
-          }
-          if (provider.paymentMethods.isEmpty) {
-            return const Center(
+            return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.payment_outlined, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text('No payment methods', style: TextStyle(fontSize: 18, color: Colors.grey)),
+                  Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+                  const SizedBox(height: 16),
+                  Text(provider.error!, textAlign: TextAlign.center),
+                  ElevatedButton(
+                    onPressed: () => provider.fetchPaymentMethods(),
+                    child: const Text('Retry'),
+                  ),
                 ],
               ),
             );
           }
+          if (provider.paymentMethods.isEmpty) {
+            return const EmptyState(
+              icon: Icons.payment_outlined,
+              title: 'No payment methods',
+              subtitle: 'Tap + to add a payment method',
+            );
+          }
+
           return ListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: provider.paymentMethods.length,
@@ -168,6 +122,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
                       IconButton(
                         icon: const Icon(Icons.delete),
                         onPressed: () => _confirmDelete(method.id, method.description ?? ''),
+                        color: Colors.red,
                       ),
                     ],
                   ),
@@ -181,7 +136,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
         onPressed: () => _openDialog(),
         icon: const Icon(Icons.add),
         label: const Text('New Method'),
-        backgroundColor: Colors.amber[700],
+        backgroundColor: const Color(0xFFD4AF37),
       ),
     );
   }
