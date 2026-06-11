@@ -1784,15 +1784,20 @@ class _OrderDetailsSheetState extends State<_OrderDetailsSheet> {
       final warehouseId = await _showWarehouseSelectionDialog();
       if (warehouseId == null) return; // User cancelled
 
-      final success = await orderProvider.updateOrder(updatedOrder);
+      // Use new backend endpoint to complete purchase order atomically
+      final success = await orderProvider.completePurchaseOrder(
+        widget.order.id!,
+        warehouseId: warehouseId,
+        receptionDate: _receptionDate,
+        notes: _notes,
+      );
+
       if (success && mounted) {
-        // Add items to inventory
-        await _addItemsToInventory(warehouseId);
         ScaffoldMessenger.of(context).showSnackBar(successSnackBar('Order completed and inventory updated'));
         setState(() => _isEditing = false);
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          errorSnackBar(orderProvider.error ?? 'Failed to update order'),
+          errorSnackBar(orderProvider.error ?? 'Failed to complete order'),
         );
       }
     } else {
@@ -1849,35 +1854,5 @@ class _OrderDetailsSheetState extends State<_OrderDetailsSheet> {
         ],
       ),
     );
-  }
-
-  Future<void> _addItemsToInventory(int warehouseId) async {
-    final orderProvider = context.read<PurchaseOrderProvider>();
-    final apiService = ApiService();
-    final details = orderProvider.orderDetails.where((d) => d.purchaseOrderId == widget.order.id).toList();
-
-    for (final detail in details) {
-      // Create inventory movement (IN movement for purchase)
-      final movementData = {
-        'productId': detail.productId,
-        'warehouseId': warehouseId,
-        'movementType': 'IN',
-        'quantity': detail.quantity,
-        'movementDate': DateTime.now().toIso8601String().split('T')[0],
-        'purchaseOrderId': widget.order.id,
-        'notes': 'Received from purchase order #${widget.order.id}',
-      };
-      await apiService.post('/InventoryMovement', body: movementData);
-
-      // Also update the inventory quantity directly
-      await apiService.put(
-        '/Inventory/UpdateQuantity',
-        body: {
-          'productId': detail.productId,
-          'warehouseId': warehouseId,
-          'quantityChange': detail.quantity,
-        },
-      );
-    }
   }
 }
