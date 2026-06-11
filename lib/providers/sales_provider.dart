@@ -149,64 +149,24 @@ class SalesProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Backend expects SalesOrderHeader with Notes field for salesperson
-      final orderData = {
+      final response = await _apiService.post('/SalesOrderHeader/CompleteSale', body: {
         'customerId': _selectedCustomerId,
         'paymentMethodId': _paymentMethodId,
-        'notes': _salespersonName ?? '',
+        'salespersonName': _salespersonName ?? '',
+        'warehouseId': _selectedWarehouseId ?? 1,
         'saleDate': DateTime.now().toIso8601String().split('T')[0],
-        'total': cartTotal,
-      };
+        'items': _cart.map((item) => {
+          'productId': item.productId,
+          'quantity': item.quantity,
+          'unitPrice': item.unitPrice,
+        }).toList(),
+      });
 
-      final headerResponse = await _apiService.post('/SalesOrderHeader', body: orderData);
-
-      if (headerResponse == null) {
+      if (response == null) {
         _error = 'No response from server';
         _isLoading = false;
         notifyListeners();
         return false;
-      }
-
-      final salesOrderId = headerResponse['id'];
-      if (salesOrderId == null) {
-        _error = 'Invalid response: missing id';
-        _isLoading = false;
-        notifyListeners();
-        return false;
-      }
-
-      // Create sales order details for each cart item
-      for (final item in _cart) {
-        final detailData = {
-          'salesOrderId': salesOrderId,
-          'productId': item.productId,
-          'quantity': item.quantity,
-          'unitPrice': item.unitPrice,
-          'total': item.total,
-        };
-        await _apiService.post('/SalesOrderDetail', body: detailData);
-
-        // Create inventory movement for the sale (OUT movement)
-        final movementData = {
-          'productId': item.productId,
-          'warehouseId': _selectedWarehouseId ?? 1,
-          'movementType': 'OUT',
-          'quantity': item.quantity,
-          'movementDate': DateTime.now().toIso8601String().split('T')[0],
-          'salesOrderId': salesOrderId,
-          'notes': 'Sale by $_salespersonName',
-        };
-        await _apiService.post('/InventoryMovement', body: movementData);
-
-        // Also update the inventory quantity directly
-        await _apiService.put(
-          '/Inventory/UpdateQuantity',
-          body: {
-            'productId': item.productId,
-            'warehouseId': _selectedWarehouseId ?? 1,
-            'quantityChange': -item.quantity,
-          },
-        );
       }
 
       clearCart();

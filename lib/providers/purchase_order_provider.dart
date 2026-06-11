@@ -194,4 +194,37 @@ class PurchaseOrderProvider extends ChangeNotifier {
   double calculateOrderTotal(List<PurchaseOrderDetailModel> details) {
     return details.fold(0.0, (sum, d) => sum + (d.total ?? 0));
   }
+
+  /// Complete a purchase order - updates status, creates inventory movements and updates inventory
+  Future<bool> completePurchaseOrder(int orderId, {
+    required int warehouseId,
+    DateTime? receptionDate,
+    String? notes,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final response = await _apiService.post('/PurchaseOrderHeader/$orderId/Complete', body: {
+        'warehouseId': warehouseId,
+        'receptionDate': receptionDate?.toIso8601String().split('T')[0] ?? DateTime.now().toIso8601String().split('T')[0],
+        'notes': notes ?? '',
+      });
+
+      if (response != null) {
+        // Refresh orders to get updated status
+        await fetchOrders();
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      }
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+    return false;
+  }
 }
