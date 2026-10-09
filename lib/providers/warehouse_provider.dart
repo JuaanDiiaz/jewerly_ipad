@@ -37,12 +37,15 @@ class WarehouseProvider extends ChangeNotifier {
 
     try {
       final response = await _apiService.post('/Warehouse', body: {'name': name});
-      if (response != null) {
+      if (response is Map<String, dynamic>) {
         _warehouses.add(WarehouseModel.fromJson(response));
-        _isLoading = false;
-        notifyListeners();
-        return true;
+      } else {
+        // 2xx with empty body: it succeeded but returned no record — refetch
+        await fetchWarehouses();
       }
+      _isLoading = false;
+      notifyListeners();
+      return true;
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -59,15 +62,18 @@ class WarehouseProvider extends ChangeNotifier {
 
     try {
       final response = await _apiService.put('/Warehouse/$id', body: {'id': id, 'name': name});
-      if (response != null) {
+      if (response is Map<String, dynamic>) {
         final index = _warehouses.indexWhere((w) => w.id == id);
         if (index != -1) {
           _warehouses[index] = WarehouseModel.fromJson(response);
         }
-        _isLoading = false;
-        notifyListeners();
-        return true;
+      } else {
+        // 2xx with empty body: it succeeded but returned no record — refetch
+        await fetchWarehouses();
       }
+      _isLoading = false;
+      notifyListeners();
+      return true;
     } catch (e) {
       _error = e.toString();
     } finally {

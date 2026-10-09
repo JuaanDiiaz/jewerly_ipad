@@ -21,6 +21,30 @@ class AppTheme {
   static const Color error = Color(0xFFE53935);
   static const Color warning = Color(0xFFFF9800);
 
+  // ── Dark palette ─────────────────────────────────────────────────────────
+  // Deep purple-black surfaces with the same gold accents; gold stays
+  // identical so brand elements (badges, buttons, decorations) carry over.
+  static const Color darkBackground = Color(0xFF151021);
+  static const Color darkSurface = Color(0xFF221A33);
+  static const Color darkRaised = Color(0xFF2C2242);
+  static const Color darkTextLight = Color(0xFFF3EDE0);
+  static const Color darkMutedText = Color(0xFFA79FC0);
+  static const Color darkHairline = Color(0xFF3F2E5C);
+
+  // ── Brightness-tracking mode ─────────────────────────────────────────────
+  // Screens consume these adaptive getters instead of the fixed constants
+  // above; ThemeProvider sets this on mode/system changes.
+  static bool _isDark = false;
+  static bool get isDark => _isDark;
+  static void setDarkMode(bool value) => _isDark = value;
+
+  static Color get background => _isDark ? darkBackground : cream;
+  static Color get surfaceColor => _isDark ? darkSurface : Colors.white;
+  static Color get raisedColor => _isDark ? darkRaised : ivory;
+  static Color get textColor => _isDark ? darkTextLight : darkText;
+  static Color get mutedText => _isDark ? darkMutedText : subtleText;
+  static Color get hairline => _isDark ? darkHairline : lightGold;
+
   // ThemeData
   static ThemeData get lightTheme {
     return ThemeData(
@@ -42,7 +66,7 @@ class AppTheme {
           color: Colors.white,
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: Colors.white,
         elevation: 4,
         shadowColor: darkPurple.withOpacity(0.15),
@@ -155,7 +179,7 @@ class AppTheme {
     Color? borderColor,
   }) {
     return BoxDecoration(
-      color: Colors.white,
+      color: surfaceColor,
       borderRadius: BorderRadius.circular(radius),
       border: Border.all(
         color: borderColor ?? primaryGold.withOpacity(0.3),
@@ -163,7 +187,7 @@ class AppTheme {
       ),
       boxShadow: [
         BoxShadow(
-          color: darkPurple.withOpacity(0.08),
+          color: _isDark ? const Color(0xFF000000) : darkPurple.withOpacity(0.08),
           blurRadius: 8,
           offset: const Offset(0, 2),
         ),
@@ -215,6 +239,135 @@ class AppTheme {
           offset: const Offset(0, 3),
         ),
       ],
+    );
+  }
+
+  // ThemeData
+  static ThemeData get darkTheme {
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: primaryGold,
+        brightness: Brightness.dark,
+      ),
+      scaffoldBackgroundColor: darkBackground,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: darkPurple,
+        foregroundColor: Colors.white,
+        elevation: 4,
+        shadowColor: Color(0x66000000),
+        titleTextStyle: TextStyle(
+          fontFamily: 'PlayfairDisplay',
+          fontSize: 22,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
+        ),
+      ),
+      cardTheme: CardThemeData(
+        color: darkSurface,
+        elevation: 4,
+        shadowColor: const Color(0x99000000),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: darkHairline, width: 1),
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primaryGold,
+          foregroundColor: darkText,
+          elevation: 3,
+          shadowColor: Colors.black.withOpacity(0.4),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          textStyle: const TextStyle(
+            fontFamily: 'Montserrat',
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: primaryGold,
+        foregroundColor: darkText,
+        elevation: 6,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(20)),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: darkRaised,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: darkHairline),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: darkHairline),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: primaryGold, width: 2),
+        ),
+        labelStyle: const TextStyle(
+          fontFamily: 'Montserrat',
+          color: darkMutedText,
+        ),
+      ),
+      textTheme: const TextTheme(
+        headlineLarge: TextStyle(
+          fontFamily: 'PlayfairDisplay',
+          fontSize: 32,
+          fontWeight: FontWeight.w700,
+          color: darkTextLight,
+        ),
+        headlineMedium: TextStyle(
+          fontFamily: 'PlayfairDisplay',
+          fontSize: 26,
+          fontWeight: FontWeight.w600,
+          color: darkTextLight,
+        ),
+        headlineSmall: TextStyle(
+          fontFamily: 'PlayfairDisplay',
+          fontSize: 22,
+          fontWeight: FontWeight.w600,
+          color: darkTextLight,
+        ),
+        titleLarge: TextStyle(
+          fontFamily: 'Montserrat',
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          color: darkTextLight,
+        ),
+        titleMedium: TextStyle(
+          fontFamily: 'Montserrat',
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+          color: darkTextLight,
+        ),
+        bodyLarge: TextStyle(
+          fontFamily: 'Montserrat',
+          fontSize: 16,
+          fontWeight: FontWeight.w400,
+          color: darkTextLight,
+        ),
+        bodyMedium: TextStyle(
+          fontFamily: 'Montserrat',
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+          color: darkTextLight,
+        ),
+        bodySmall: TextStyle(
+          fontFamily: 'Montserrat',
+          fontSize: 12,
+          fontWeight: FontWeight.w400,
+          color: darkMutedText,
+        ),
+      ),
     );
   }
 }

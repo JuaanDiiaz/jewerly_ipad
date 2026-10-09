@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:provider/provider.dart';
 import 'package:p_a_jewerly/providers/sales_provider.dart';
@@ -14,9 +14,10 @@ import 'package:p_a_jewerly/providers/product_image_provider.dart';
 import 'package:p_a_jewerly/models/inventory_model.dart';
 import 'package:p_a_jewerly/models/price_list_model.dart';
 import 'package:p_a_jewerly/models/price_list_detail_model.dart';
-import 'package:p_a_jewerly/models/product_image_model.dart';
 import 'package:p_a_jewerly/theme/app_theme.dart';
+import 'package:p_a_jewerly/utils/format.dart';
 import 'package:p_a_jewerly/widgets/loading_overlay.dart';
+import 'package:p_a_jewerly/widgets/picked_image.dart';
 
 class SaleScreen extends StatefulWidget {
   const SaleScreen({super.key});
@@ -78,6 +79,7 @@ class _SaleScreenState extends State<SaleScreen> {
       return;
     }
 
+    HapticFeedback.mediumImpact();
     salesProvider.addToCart(CartItem(
       productId: product.id,
       productName: product.description ?? 'Product ${product.id}',
@@ -172,7 +174,11 @@ class _SaleScreenState extends State<SaleScreen> {
                                   icon: const Icon(Icons.add_shopping_cart, color: Colors.green),
                                   onPressed: () {
                                     Navigator.pop(context);
-                                    _addToCart(product, (priceDetail.price ?? 0).toDouble());
+                                    _addToCart(
+                                      product,
+                                      (priceDetail.price ?? 0).toDouble(),
+                                      maxQuantity: inventory?.quantity ?? 0,
+                                    );
                                   },
                                 ),
                               ),
@@ -288,12 +294,12 @@ class _SaleScreenState extends State<SaleScreen> {
                         ...salesProvider.cart.map((item) => Card(
                           child: ListTile(
                             title: Text(item.productName),
-                            subtitle: Text('\$${item.unitPrice.toStringAsFixed(2)} x ${item.quantity}'),
+                            subtitle: Text('${formatCurrency(item.unitPrice)} x ${item.quantity}'),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  '\$${item.total.toStringAsFixed(2)}',
+                                  '${formatCurrency(item.total)}',
                                   style: const TextStyle(fontWeight: FontWeight.bold),
                                 ),
                                 IconButton(
@@ -313,7 +319,7 @@ class _SaleScreenState extends State<SaleScreen> {
                               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                             ),
                             Text(
-                              '\$${salesProvider.cartTotal.toStringAsFixed(2)}',
+                              '${formatCurrency(salesProvider.cartTotal)}',
                               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
                             ),
                           ],
@@ -423,9 +429,23 @@ class _SaleScreenState extends State<SaleScreen> {
       return;
     }
 
+    if (salesProvider.selectedWarehouseId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        errorSnackBar('Please select a warehouse'),
+      );
+      return;
+    }
+
     final success = await salesProvider.checkout();
 
     if (success && mounted) {
+      HapticFeedback.heavyImpact();
+      // Clear the form for the next sale (otherwise the next checkout would
+      // record the previous sale's salesperson / stale notes).
+      _salespersonController.clear();
+      // CompleteSale decrements stock server-side — refetch so the product
+      // grid and "N available" labels reflect it immediately.
+      context.read<InventoryProvider>().fetchInventory();
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         successSnackBar('Sale completed successfully!'),
@@ -467,7 +487,7 @@ class _SaleScreenState extends State<SaleScreen> {
     return Form(
       key: _formKey,
       child: Container(
-        color: AppTheme.cream,
+        color: AppTheme.background,
         child: Column(
           children: [
             // Header with search and filters
@@ -652,16 +672,25 @@ class _SaleScreenState extends State<SaleScreen> {
         }).toList();
 
         if (productsWithInventory.isEmpty) {
+          // Distinguish "picked a warehouse and nothing is in stock" from
+          // "no warehouse picked yet" — the filter is a no-op without one.
+          final noWarehouse = salesProvider.selectedWarehouseId == null;
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey[400]),
+                Icon(
+                  noWarehouse ? Icons.warehouse_outlined : Icons.inventory_2_outlined,
+                  size: 64,
+                  color: Colors.grey[400],
+                ),
                 const SizedBox(height: 16),
                 Text(
-                  filteredProducts.isEmpty
-                      ? 'No products found for "$_searchQuery"'
-                      : 'No products in stock',
+                  noWarehouse
+                      ? 'Select a warehouse to see available products'
+                      : filteredProducts.isEmpty
+                          ? 'No products found for "$_searchQuery"'
+                          : 'No products in stock in this warehouse',
                   style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                 ),
               ],
@@ -669,14 +698,21 @@ class _SaleScreenState extends State<SaleScreen> {
           );
         }
 
-        return GridView.builder(
-          padding: const EdgeInsets.all(16),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 0.72,
-          ),
+        return RefreshIndicator(
+          // Pull-to-refresh covers stock changes made anywhere else (purchases,
+          // manual inventory adjustments, another device).
+          onRefresh: () => Future.wait([
+            inventoryProvider.fetchInventory(),
+            productProvider.fetchProducts(),
+          ]),
+          child: GridView.builder(
+            padding: const EdgeInsets.all(16),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              childAspectRatio: 0.72,
+            ),
           itemCount: productsWithInventory.length,
           itemBuilder: (context, index) {
             final product = productsWithInventory[index];
@@ -694,12 +730,12 @@ class _SaleScreenState extends State<SaleScreen> {
               inventory: inventory,
               availablePrices: availablePrices,
               imageUrl: imageUrl,
-              onAddToCart: () => _addToCart(product, 0.0, maxQuantity: inventory?.quantity ?? 0),
               onViewDetails: () => _showProductDetails(product, inventory),
             );
           },
-        );
-      },
+            ),
+          );
+        },
     );
   }
 
@@ -756,7 +792,7 @@ class _SaleScreenState extends State<SaleScreen> {
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       prefixIcon: const Icon(Icons.warehouse),
                       filled: true,
-                      fillColor: AppTheme.cream,
+                      fillColor: AppTheme.background,
                     ),
                     value: salesProvider.selectedWarehouseId,
                     items: [
@@ -785,9 +821,8 @@ class _SaleScreenState extends State<SaleScreen> {
                         return _CartItemTile(
                           item: item,
                           onRemove: () => salesProvider.removeFromCart(item.productId),
-                          onQuantityChanged: (qty) {
-                            // Update quantity logic would go here
-                          },
+                          onQuantityChanged: (qty) =>
+                              salesProvider.updateCartItemQuantity(item.productId, qty),
                         );
                       },
                     ),
@@ -825,7 +860,7 @@ class _SaleScreenState extends State<SaleScreen> {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: AppTheme.cream,
+        color: AppTheme.background,
         border: Border(
           top: BorderSide(color: Colors.grey.withOpacity(0.2)),
         ),
@@ -837,7 +872,7 @@ class _SaleScreenState extends State<SaleScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('Subtotal:', style: TextStyle(color: Colors.grey, fontSize: 13)),
-              Text('\$${salesProvider.cartTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text('${formatCurrency(salesProvider.cartTotal)}', style: const TextStyle(fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 8),
@@ -928,7 +963,7 @@ class _SaleScreenState extends State<SaleScreen> {
                   const Icon(Icons.shopping_cart_checkout, size: 18),
                   const SizedBox(width: 8),
                   Text(
-                    'Checkout \$${salesProvider.cartTotal.toStringAsFixed(2)}',
+                    'Checkout ${formatCurrency(salesProvider.cartTotal)}',
                     style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                   ),
                 ],
@@ -966,7 +1001,7 @@ class _SaleScreenState extends State<SaleScreen> {
                     label: Text(
                       salesProvider.cart.isEmpty
                           ? 'Cart Empty'
-                          : '${salesProvider.cart.length} items - \$${salesProvider.cartTotal.toStringAsFixed(2)}',
+                          : '${salesProvider.cart.length} items - ${formatCurrency(salesProvider.cartTotal)}',
                       overflow: TextOverflow.ellipsis,
                     ),
                     style: ElevatedButton.styleFrom(
@@ -980,7 +1015,7 @@ class _SaleScreenState extends State<SaleScreen> {
                 const SizedBox(width: 12),
                 Container(
                   decoration: BoxDecoration(
-                    color: AppTheme.cream,
+                    color: AppTheme.background,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: IconButton(
@@ -1137,7 +1172,6 @@ class _ProductCard extends StatefulWidget {
   final InventoryModel? inventory;
   final List<PriceListDetailModel> availablePrices;
   final String? imageUrl;
-  final VoidCallback onAddToCart;
   final VoidCallback onViewDetails;
 
   const _ProductCard({
@@ -1145,7 +1179,6 @@ class _ProductCard extends StatefulWidget {
     this.inventory,
     required this.availablePrices,
     this.imageUrl,
-    required this.onAddToCart,
     required this.onViewDetails,
   });
 
@@ -1214,7 +1247,7 @@ class _ProductCardState extends State<_ProductCard> {
                             ],
                           ),
                           child: Text(
-                            '\$${lowestPrice.toStringAsFixed(2)}',
+                            '${formatCurrency(lowestPrice)}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -1240,32 +1273,32 @@ class _ProductCardState extends State<_ProductCard> {
                           ),
                         ),
                       ),
-                    // Quick add button
+                    // Quick add button removed: it added items at a $0.00
+                    // price because the grid tile has no price info. This
+                    // gold affordance opens the detail sheet (which offers
+                    // each available price-list price) instead.
                     Positioned(
                       bottom: 8,
                       right: 8,
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: widget.onAddToCart,
-                          borderRadius: BorderRadius.circular(24),
-                          child: Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Colors.green.shade600, Colors.green.shade400],
-                              ),
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.green.withOpacity(0.4),
-                                  blurRadius: 6,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
+                      child: GestureDetector(
+                        onTap: widget.onViewDetails,
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [AppTheme.primaryGold, AppTheme.secondaryGold],
                             ),
-                            child: const Icon(Icons.add, color: Colors.white, size: 20),
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.primaryGold.withOpacity(0.4),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
+                          child: const Icon(Icons.add, color: Colors.white, size: 20),
                         ),
                       ),
                     ),
@@ -1382,16 +1415,27 @@ class _CartItemTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '\$${item.unitPrice.toStringAsFixed(2)} each',
+                    '${formatCurrency(item.unitPrice)} each',
                     style: TextStyle(color: Colors.grey[600], fontSize: 12),
                   ),
+                  // Stock feedback: shows the ceiling and flags when the cart
+                  // is at (or over) it.
+                  if (item.maxQuantity > 0)
+                    Text(
+                      '${item.maxQuantity} available',
+                      style: TextStyle(
+                        color: item.quantity >= item.maxQuantity ? AppTheme.error : Colors.grey[600],
+                        fontSize: 11,
+                        fontWeight: item.quantity >= item.maxQuantity ? FontWeight.w600 : FontWeight.w400,
+                      ),
+                    ),
                 ],
               ),
             ),
             // Quantity
             Container(
               decoration: BoxDecoration(
-                color: AppTheme.cream,
+                color: AppTheme.background,
                 borderRadius: BorderRadius.circular(8),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -1401,6 +1445,7 @@ class _CartItemTile extends StatelessWidget {
                   IconButton(
                     icon: const Icon(Icons.remove, size: 16),
                     onPressed: () {
+                      HapticFeedback.lightImpact();
                       if (item.quantity > 1) {
                         onQuantityChanged(item.quantity - 1);
                       } else {
@@ -1420,7 +1465,23 @@ class _CartItemTile extends StatelessWidget {
                   ),
                   IconButton(
                     icon: const Icon(Icons.add, size: 16),
-                    onPressed: () => onQuantityChanged(item.quantity + 1),
+                    onPressed: () {
+                      // Stock ceiling: no silent clamp — tell the user why the
+                      // number won't move.
+                      if (item.maxQuantity > 0 && item.quantity >= item.maxQuantity) {
+                        HapticFeedback.lightImpact();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Only ${item.maxQuantity} available'),
+                            duration: const Duration(seconds: 1),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                        return;
+                      }
+                      HapticFeedback.lightImpact();
+                      onQuantityChanged(item.quantity + 1);
+                    },
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                   ),
@@ -1433,7 +1494,7 @@ class _CartItemTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  '\$${item.total.toStringAsFixed(2)}',
+                  '${formatCurrency(item.total)}',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                 ),
                 IconButton(
@@ -1502,12 +1563,9 @@ class _ProductImageCarouselState extends State<_ProductImageCarousel> {
                   itemCount: widget.images.length,
                   onPageChanged: (index) => setState(() => _currentIndex = index),
                   itemBuilder: (context, index) {
-                    final isNetwork = widget.images[index].startsWith('http');
-                    return isNetwork
-                        ? Image.network(widget.images[index], fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => _buildPlaceholder())
-                        : Image.file(File(widget.images[index]), fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => _buildPlaceholder());
+                    // PickedImage renders server URLs and picked bytes on web
+                    // too; Image.file (dart:io) would crash on Chrome.
+                    return PickedImage(url: widget.images[index], fit: BoxFit.cover);
                   },
                 ),
                 if (widget.images.length > 1) ...[
@@ -1589,7 +1647,6 @@ class _ProductImageCarouselState extends State<_ProductImageCarousel> {
               itemCount: widget.images.length,
               itemBuilder: (context, index) {
                 final isSelected = index == _currentIndex;
-                final isNetwork = widget.images[index].startsWith('http');
                 return GestureDetector(
                   onTap: () {
                     setState(() => _currentIndex = index);
@@ -1618,9 +1675,7 @@ class _ProductImageCarouselState extends State<_ProductImageCarousel> {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(9),
-                      child: isNetwork
-                          ? Image.network(widget.images[index], fit: BoxFit.cover)
-                          : Image.file(File(widget.images[index]), fit: BoxFit.cover),
+                      child: PickedImage(url: widget.images[index]),
                     ),
                   ),
                 );
@@ -1629,21 +1684,6 @@ class _ProductImageCarouselState extends State<_ProductImageCarousel> {
           ),
         ],
       ],
-    );
-  }
-
-  Widget _buildPlaceholder() {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppTheme.lightGold.withOpacity(0.3), AppTheme.lightGold.withOpacity(0.1)],
-        ),
-      ),
-      child: Center(
-        child: Icon(Icons.diamond_outlined, size: 80, color: AppTheme.primaryGold.withOpacity(0.5)),
-      ),
     );
   }
 }

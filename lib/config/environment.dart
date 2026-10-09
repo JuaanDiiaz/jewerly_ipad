@@ -5,7 +5,9 @@ enum EnvironmentType { development, staging, production }
 class Environment {
   static EnvironmentType _environment = EnvironmentType.development;
   static const String _apiUrlKey = 'api_base_url';
-  static const String _defaultUrl = 'http://localhost:3000/api/v1';
+  // Matches the ASP.NET backend running locally (.env's API_BASE_URL); users
+  // can still override per device from the Settings screen.
+  static const String _defaultUrl = 'https://localhost:7293/api';
   static String _cachedUrl = '';
 
   static void initialize() {

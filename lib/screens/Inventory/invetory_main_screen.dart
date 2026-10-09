@@ -18,7 +18,12 @@ class _InventoryMainScreenState extends State<InventoryMainScreen> {
   final _formKey = GlobalKey<FormState>();
   final _locationController = TextEditingController();
   final _weightController = TextEditingController();
+  final _quantityController = TextEditingController();
   int? _editingId;
+  // Dialog selections — captured from the dropdowns (they were previously
+  // ignored and the save hardcoded the first product/warehouse in the list)
+  int? _dialogProductId;
+  int? _dialogWarehouseId;
 
   @override
   void initState() {
@@ -34,6 +39,7 @@ class _InventoryMainScreenState extends State<InventoryMainScreen> {
   void dispose() {
     _locationController.dispose();
     _weightController.dispose();
+    _quantityController.dispose();
     super.dispose();
   }
 
@@ -41,10 +47,19 @@ class _InventoryMainScreenState extends State<InventoryMainScreen> {
     _editingId = inventoryItem?.id;
     _locationController.text = inventoryItem?.location ?? '';
     _weightController.text = inventoryItem?.weight?.toString() ?? '';
-    showDialog(context: context, builder: (_) => _buildDialog(inventoryItem));
+    _quantityController.text = inventoryItem?.quantity?.toString() ?? '';
+    _dialogProductId = inventoryItem?.productId;
+    _dialogWarehouseId = inventoryItem?.warehouseId;
+    showDialog(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) =>
+            _buildDialog(inventoryItem, setDialogState),
+      ),
+    );
   }
 
-  Widget _buildDialog(dynamic inventoryItem) {
+  Widget _buildDialog(dynamic inventoryItem, void Function(VoidCallback) setDialogState) {
     final warehouses = context.watch<WarehouseProvider>().warehouses;
     final products = context.watch<ProductProvider>().products;
 
@@ -54,7 +69,7 @@ class _InventoryMainScreenState extends State<InventoryMainScreen> {
         width: 400,
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.surfaceColor,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Column(
@@ -84,7 +99,7 @@ class _InventoryMainScreenState extends State<InventoryMainScreen> {
               child: Column(
                 children: [
                   DropdownButtonFormField<int>(
-                    value: inventoryItem?.productId ?? (products.isNotEmpty ? products.first.id : null),
+                    value: _dialogProductId,
                     decoration: InputDecoration(
                       labelText: 'Product',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -95,11 +110,14 @@ class _InventoryMainScreenState extends State<InventoryMainScreen> {
                         child: Text(p.description ?? 'Product ${p.id}'),
                       );
                     }).toList(),
-                    onChanged: (value) {},
+                    onChanged: (value) =>
+                        setDialogState(() => _dialogProductId = value),
+                    validator: (value) =>
+                        value == null ? 'Please select a product' : null,
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<int>(
-                    value: inventoryItem?.warehouseId ?? (warehouses.isNotEmpty ? warehouses.first.id : null),
+                    value: _dialogWarehouseId,
                     decoration: InputDecoration(
                       labelText: 'Warehouse',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -110,7 +128,10 @@ class _InventoryMainScreenState extends State<InventoryMainScreen> {
                         child: Text(w.name ?? 'Warehouse ${w.id}'),
                       );
                     }).toList(),
-                    onChanged: (value) {},
+                    onChanged: (value) =>
+                        setDialogState(() => _dialogWarehouseId = value),
+                    validator: (value) =>
+                        value == null ? 'Please select a warehouse' : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
@@ -136,6 +157,25 @@ class _InventoryMainScreenState extends State<InventoryMainScreen> {
                     ),
                     keyboardType: TextInputType.number,
                   ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _quantityController,
+                    decoration: InputDecoration(
+                      labelText: 'Quantity',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      final qty = int.tryParse(value ?? '');
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Quantity is required';
+                      }
+                      if (qty == null || qty < 0) {
+                        return 'Quantity must be 0 or more';
+                      }
+                      return null;
+                    },
+                  ),
                 ],
               ),
             ),
@@ -152,7 +192,7 @@ class _InventoryMainScreenState extends State<InventoryMainScreen> {
                   onPressed: _saveInventory,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryGold,
-                    foregroundColor: AppTheme.darkText,
+                    foregroundColor: AppTheme.textColor,
                   ),
                   child: const Text('Save'),
                 ),
@@ -166,17 +206,29 @@ class _InventoryMainScreenState extends State<InventoryMainScreen> {
 
   Future<void> _saveInventory() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_dialogProductId == null || _dialogWarehouseId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        errorSnackBar('Please select a product and a warehouse'),
+      );
+      return;
+    }
 
     final provider = context.read<InventoryProvider>();
-    final warehouses = context.read<WarehouseProvider>().warehouses;
-    final products = context.read<ProductProvider>().products;
-
-    final success = await provider.addInventoryItem({
-      'productId': products.isNotEmpty ? products.first.id : 0,
-      'warehouseId': warehouses.isNotEmpty ? warehouses.first.id : 0,
+    final data = {
+      'productId': _dialogProductId,
+      'warehouseId': _dialogWarehouseId,
       'location': _locationController.text.trim(),
       'weight': double.tryParse(_weightController.text) ?? 0.0,
-    });
+      'quantity': int.tryParse(_quantityController.text.trim()) ?? 0,
+    };
+
+    final bool success;
+    if (_editingId != null) {
+      // Editing updates the existing row instead of creating a duplicate
+      success = await provider.updateInventoryItem(_editingId!, data);
+    } else {
+      success = await provider.addInventoryItem(data);
+    }
 
     if (mounted) {
       Navigator.pop(context);
@@ -207,7 +259,7 @@ class _InventoryMainScreenState extends State<InventoryMainScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.surfaceColor,
               boxShadow: [
                 BoxShadow(
                   color: AppTheme.deepPurple.withOpacity(0.05),
@@ -223,7 +275,7 @@ class _InventoryMainScreenState extends State<InventoryMainScreen> {
                     labelText: 'Filter by Warehouse',
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     filled: true,
-                    fillColor: AppTheme.cream,
+                    fillColor: AppTheme.background,
                   ),
                   value: _selectedWarehouseId,
                   items: [
@@ -257,7 +309,7 @@ class _InventoryMainScreenState extends State<InventoryMainScreen> {
                     child: CircularProgressIndicator(color: AppTheme.primaryGold),
                   );
                 }
-                if (provider.error != null) {
+                if (provider.error != null && provider.inventory.isEmpty) {
                   return AppErrorWidget(
                     message: provider.error!,
                     onRetry: () => provider.fetchInventory(),
@@ -272,68 +324,30 @@ class _InventoryMainScreenState extends State<InventoryMainScreen> {
                         const SizedBox(height: 16),
                         Text(
                           'No inventory items',
-                          style: TextStyle(fontSize: 18, color: AppTheme.subtleText),
+                          style: TextStyle(fontSize: 18, color: AppTheme.mutedText),
                         ),
                       ],
                     ),
                   );
                 }
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: provider.inventory.length,
-                  itemBuilder: (context, index) {
-                    final item = provider.inventory[index];
-                    final products = context.watch<ProductProvider>().products;
-                    final product = products.where((p) => p.id == item.productId).firstOrNull;
-                    final productName = product?.description ?? 'Product #${item.productId}';
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      decoration: AppTheme.goldBorderDecoration(),
-                      child: ListTile(
-                        leading: Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryGold.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(Icons.inventory_2_outlined, color: AppTheme.primaryGold),
-                        ),
-                        title: Text(
-                          productName,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: Text(
-                          'WH #${item.warehouseId} • ${item.location}',
-                          style: TextStyle(color: AppTheme.subtleText),
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: AppTheme.success.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                '${item.weight ?? 0} g',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.success,
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.edit_outlined),
-                              onPressed: () => _openDialog(inventoryItem: item),
-                              color: AppTheme.mediumPurple,
-                            ),
-                          ],
+                // A refresh failure with stale rows keeps the list visible
+                // and surfaces the failure as a banner instead of swallowing it.
+                if (provider.error != null) {
+                  return Column(
+                    children: [
+                      ErrorBanner(message: provider.error!, onRetry: () => provider.fetchInventory()),
+                      Expanded(
+                        child: RefreshIndicator(
+                          onRefresh: () => provider.fetchInventory(warehouseId: _selectedWarehouseId?.toString()),
+                          child: _buildInventoryList(),
                         ),
                       ),
-                    );
-                  },
+                    ],
+                  );
+                }
+                return RefreshIndicator(
+                  onRefresh: () => provider.fetchInventory(warehouseId: _selectedWarehouseId?.toString()),
+                  child: _buildInventoryList(),
                 );
               },
             ),
@@ -345,8 +359,72 @@ class _InventoryMainScreenState extends State<InventoryMainScreen> {
         icon: const Icon(Icons.add),
         label: const Text('New Item'),
         backgroundColor: AppTheme.primaryGold,
-        foregroundColor: AppTheme.darkText,
+        foregroundColor: AppTheme.textColor,
       ),
+    );
+  }
+
+  Widget _buildInventoryList() {
+    return Consumer<InventoryProvider>(
+      builder: (context, provider, _) {
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: provider.inventory.length,
+          itemBuilder: (context, index) {
+            final item = provider.inventory[index];
+            final products = context.watch<ProductProvider>().products;
+            final product = products.where((p) => p.id == item.productId).firstOrNull;
+            final productName = product?.description ?? 'Product #${item.productId}';
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: AppTheme.goldBorderDecoration(),
+              child: ListTile(
+                leading: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryGold.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(Icons.inventory_2_outlined, color: AppTheme.primaryGold),
+                ),
+                title: Text(
+                  productName,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                subtitle: Text(
+                  'WH #${item.warehouseId} • ${item.location}',
+                  style: TextStyle(color: AppTheme.mutedText),
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.success.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${item.weight ?? 0} g',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.success,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.edit_outlined),
+                      onPressed: () => _openDialog(inventoryItem: item),
+                      color: AppTheme.mediumPurple,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

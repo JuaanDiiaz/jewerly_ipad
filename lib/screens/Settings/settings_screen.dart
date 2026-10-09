@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:p_a_jewerly/config/environment.dart';
 import 'package:p_a_jewerly/providers/api_config_provider.dart';
+import 'package:p_a_jewerly/providers/theme_provider.dart';
 import 'package:p_a_jewerly/theme/app_theme.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -13,13 +14,12 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _notificationsEnabled = true;
-  bool _darkMode = false;
   String _selectedLanguage = 'English';
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.cream,
+      backgroundColor: AppTheme.background,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
@@ -93,18 +93,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       );
                     },
                   ),
-                  const Divider(height: 1),
-                  SwitchListTile(
-                    secondary: const Icon(Icons.dark_mode, color: AppTheme.primaryGold),
-                    title: const Text('Dark Mode'),
-                    subtitle: const Text('Use dark theme'),
-                    value: _darkMode,
-                    onChanged: (value) {
-                      setState(() => _darkMode = value);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Dark mode setting - coming soon'), duration: Duration(seconds: 1)),
-                      );
-                    },
+                ]),
+                const SizedBox(height: 24),
+
+                // Appearance
+                _buildSectionTitle('Appearance', icon: Icons.contrast),
+                _buildSettingsCard([
+                  Consumer<ThemeProvider>(
+                    builder: (context, themeProvider, _) => Column(
+                      children: [
+                        _buildThemeTile(
+                          themeProvider,
+                          mode: ThemeMode.system,
+                          title: 'System',
+                          subtitle: 'Follow the device setting',
+                          icon: Icons.settings_suggest_outlined,
+                        ),
+                        const Divider(height: 1),
+                        _buildThemeTile(
+                          themeProvider,
+                          mode: ThemeMode.light,
+                          title: 'Light',
+                          subtitle: 'Cream and gold',
+                          icon: Icons.light_mode_outlined,
+                        ),
+                        const Divider(height: 1),
+                        _buildThemeTile(
+                          themeProvider,
+                          mode: ThemeMode.dark,
+                          title: 'Dark',
+                          subtitle: 'Deep purple with gold accents',
+                          icon: Icons.dark_mode_outlined,
+                        ),
+                      ],
+                    ),
                   ),
                 ]),
                 const SizedBox(height: 24),
@@ -153,9 +175,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   }),
                 ]),
                 const SizedBox(height: 30),
-                Center(child: Text('P&A Jewerly App', style: TextStyle(color: Colors.grey[600], fontSize: 14))),
+                Center(child: Text('P&A Jewerly App', style: TextStyle(color: AppTheme.mutedText, fontSize: 14))),
                 const SizedBox(height: 8),
-                Center(child: Text('© 2024 All rights reserved', style: TextStyle(color: Colors.grey[400], fontSize: 12))),
+                Center(child: Text('© 2026 All rights reserved', style: TextStyle(color: AppTheme.mutedText, fontSize: 12))),
                 const SizedBox(height: 16),
               ]),
             ),
@@ -173,13 +195,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Icon(Icons.link, color: AppTheme.primaryGold),
       ),
       title: const Text('API Server URL', style: TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text(apiConfig.apiUrl.isNotEmpty ? apiConfig.apiUrl : 'Not configured', style: TextStyle(fontSize: 12, color: apiConfig.apiUrl.isNotEmpty ? Colors.grey[600] : Colors.red), overflow: TextOverflow.ellipsis),
+      subtitle: Text(apiConfig.apiUrl.isNotEmpty ? apiConfig.apiUrl : 'Not configured', style: TextStyle(fontSize: 12, color: apiConfig.apiUrl.isNotEmpty ? AppTheme.mutedText : AppTheme.error), overflow: TextOverflow.ellipsis),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(icon: const Icon(Icons.edit, color: AppTheme.deepPurple), onPressed: () => _showApiUrlDialog(apiConfig)),
           if (apiConfig.apiUrl.isNotEmpty)
-            IconButton(icon: const Icon(Icons.refresh, color: Colors.grey), onPressed: () async {
+            IconButton(icon: Icon(Icons.refresh, color: AppTheme.mutedText), onPressed: () async {
               await apiConfig.resetToDefault();
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('API URL reset to default'), backgroundColor: Colors.orange));
@@ -198,24 +220,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Row(children: [Icon(Icons.cloud, color: AppTheme.deepPurple), const SizedBox(width: 12), const Text('API Server URL')]),
+        title: Row(children: [const Icon(Icons.cloud, color: AppTheme.primaryGold), const SizedBox(width: 12), const Text('API Server URL')]),
         content: Form(
           key: formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Enter the base URL for the API server:', style: TextStyle(fontSize: 14, color: Colors.grey)),
+              Text('Enter the base URL for the API server:', style: TextStyle(fontSize: 14, color: AppTheme.mutedText)),
               const SizedBox(height: 16),
               TextFormField(
                 controller: controller,
                 decoration: InputDecoration(
                   labelText: 'API URL',
-                  hintText: 'http://192.168.1.100:3000/api/v1',
+                  hintText: 'https://localhost:7293/api',
                   prefixIcon: const Icon(Icons.link),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   filled: true,
-                  fillColor: AppTheme.cream,
+                  fillColor: AppTheme.background,
                 ),
                 keyboardType: TextInputType.url,
                 validator: (value) {
@@ -225,7 +247,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 },
               ),
               const SizedBox(height: 8),
-              Text('Example: http://localhost:3000/api/v1', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+              Text('Example: https://localhost:7293/api', style: TextStyle(fontSize: 12, color: AppTheme.mutedText)),
             ],
           ),
         ),
@@ -252,12 +274,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildSectionTitle(String title, {required IconData icon}) {
+    // deepPurple is invisible on the dark background — switch to gold there.
+    final accent = AppTheme.isDark ? AppTheme.primaryGold : AppTheme.deepPurple;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: Row(children: [
-        Icon(icon, size: 20, color: AppTheme.deepPurple),
+        Icon(icon, size: 20, color: accent),
         const SizedBox(width: 8),
-        Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.deepPurple)),
+        Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: accent)),
       ]),
     );
   }
@@ -278,6 +302,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
       subtitle: subtitle != null ? Text(subtitle) : null,
       trailing: trailing ?? (onTap != null ? const Icon(Icons.chevron_right) : null),
       onTap: onTap,
+    );
+  }
+
+  Widget _buildThemeTile(
+    ThemeProvider themeProvider, {
+    required ThemeMode mode,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+  }) {
+    return RadioListTile<ThemeMode>(
+      secondary: Icon(icon, color: AppTheme.primaryGold),
+      title: Text(title),
+      subtitle: Text(subtitle, style: TextStyle(fontSize: 12, color: AppTheme.mutedText)),
+      value: mode,
+      groupValue: themeProvider.mode,
+      onChanged: (value) {
+        if (value != null) themeProvider.setMode(value);
+      },
     );
   }
 

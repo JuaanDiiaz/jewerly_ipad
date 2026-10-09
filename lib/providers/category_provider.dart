@@ -37,12 +37,15 @@ class CategoryProvider extends ChangeNotifier {
 
     try {
       final response = await _apiService.post('/Category', body: category.toJson());
-      if (response != null) {
+      if (response is Map<String, dynamic>) {
         _categories.add(CategoryModel.fromJson(response));
-        _isLoading = false;
-        notifyListeners();
-        return true;
+      } else {
+        // 2xx with empty body: it succeeded but returned no record — refetch
+        await fetchCategories();
       }
+      _isLoading = false;
+      notifyListeners();
+      return true;
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -59,15 +62,18 @@ class CategoryProvider extends ChangeNotifier {
 
     try {
       final response = await _apiService.put('/Category/${category.id}', body: category.toJson());
-      if (response != null) {
+      if (response is Map<String, dynamic>) {
         final index = _categories.indexWhere((c) => c.id == category.id);
         if (index != -1) {
           _categories[index] = CategoryModel.fromJson(response);
         }
-        _isLoading = false;
-        notifyListeners();
-        return true;
+      } else {
+        // 2xx with empty body: it succeeded but returned no record — refetch
+        await fetchCategories();
       }
+      _isLoading = false;
+      notifyListeners();
+      return true;
     } catch (e) {
       _error = e.toString();
     } finally {

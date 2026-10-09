@@ -1,6 +1,9 @@
 import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'package:p_a_jewerly/infraestructure/services/api_service.dart';
 import 'package:p_a_jewerly/models/product_image_model.dart';
 
@@ -75,7 +78,50 @@ class ProductImageProvider extends ChangeNotifier {
     }
   }
 
-  /// Upload image to Cloudinary
+  /// Upload image to Cloudinary (bytes-based — works on Flutter web and
+  /// mobile, unlike path-based MultipartFile.fromPath which needs dart:io).
+  Future<String?> uploadImageBytes(
+    Uint8List bytes, {
+    String filename = 'product.jpg',
+  }) async {
+    _isUploading = true;
+    notifyListeners();
+
+    try {
+      final url = Uri.parse(_cloudinaryUrl);
+      final imageUploadRequest = http.MultipartRequest('POST', url)
+        ..files.add(http.MultipartFile.fromBytes('file', bytes, filename: filename));
+
+      final streamResponse = await imageUploadRequest.send();
+      final resp = await http.Response.fromStream(streamResponse);
+
+      if (resp.statusCode != 200 && resp.statusCode != 201) {
+        debugPrint('Image upload failed with status ${resp.statusCode}: ${resp.body}');
+        _error = 'Upload failed (${resp.statusCode}): ${resp.body}';
+        return null;
+      }
+
+      final decodedData = json.decode(resp.body);
+      final secureUrl = decodedData['secure_url'];
+
+      if (secureUrl == null) {
+        _error = 'Upload succeeded but no URL returned';
+        return null;
+      }
+
+      return secureUrl;
+    } catch (e) {
+      debugPrint('Error uploading image: $e');
+      _error = 'Upload error: $e';
+      return null;
+    } finally {
+      _isUploading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Upload image to Cloudinary from a filesystem path — desktop/mobile only;
+  /// prefer [uploadImageBytes].
   Future<String?> uploadImage(String imagePath) async {
     _isUploading = true;
     notifyListeners();
@@ -127,10 +173,12 @@ class ProductImageProvider extends ChangeNotifier {
     }
   }
 
-  /// Add a new image to a product
+  /// Add a new image to a product. Takes the picked [XFile] directly: on
+  /// Flutter web its path is not an accessible file, so the bytes are read
+  /// instead (works on mobile too).
   Future<bool> addProductImage(
     int productId,
-    String imagePath,
+    XFile imageFile,
     String? description,
   ) async {
     _isLoading = true;
@@ -138,10 +186,14 @@ class ProductImageProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      debugPrint('Adding image for product $productId from path: $imagePath');
+      debugPrint('Adding image for product $productId: ${imageFile.name}');
 
-      // Upload to Cloudinary first
-      final uploadedUrl = await uploadImage(imagePath);
+      // Upload to Cloudinary first (bytes route)
+      final uploadedUrl = await uploadImageBytes(
+        await imageFile.readAsBytes(),
+        filename:
+            imageFile.name.isNotEmpty ? imageFile.name : 'product_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
       if (uploadedUrl == null) {
         _error = 'Failed to upload image to Cloudinary';
         debugPrint('Image upload failed: Cloudinary returned null');
@@ -161,7 +213,7 @@ class ProductImageProvider extends ChangeNotifier {
 
       debugPrint('ProductImage API response: $response');
 
-      if (response != null) {
+      if (response is Map<String, dynamic>) {
         final newImage = ProductImageModel.fromJson(response);
         _imagesByProduct.putIfAbsent(productId, () => []);
         _imagesByProduct[productId]!.add(newImage);
@@ -169,8 +221,11 @@ class ProductImageProvider extends ChangeNotifier {
         notifyListeners();
         return true;
       } else {
-        _error = 'Failed to save image record to database';
-        debugPrint('API returned null response');
+        // 2xx with empty body: it succeeded but returned no record — refetch
+        await fetchImagesForProduct(productId);
+        _isLoading = false;
+        notifyListeners();
+        return true;
       }
     } catch (e) {
       _error = e.toString();
@@ -199,10 +254,16 @@ class ProductImageProvider extends ChangeNotifier {
         'description': description ?? '',
       });
 
-      if (response != null) {
+      if (response is Map<String, dynamic>) {
         final newImage = ProductImageModel.fromJson(response);
         _imagesByProduct.putIfAbsent(productId, () => []);
         _imagesByProduct[productId]!.add(newImage);
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      } else {
+        // 2xx with empty body: it succeeded but returned no record — refetch
+        await fetchImagesForProduct(productId);
         _isLoading = false;
         notifyListeners();
         return true;

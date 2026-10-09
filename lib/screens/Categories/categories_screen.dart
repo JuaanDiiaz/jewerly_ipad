@@ -51,6 +51,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       editingId: _editingId,
       onSave: _saveCategory,
       allCategories: context.read<CategoryProvider>().categories,
+      onParentChanged: (value) => _parentCategoryId = value ?? 0,
     ));
   }
 
@@ -200,6 +201,9 @@ class _CategoryDialog extends StatelessWidget {
   final int? editingId;
   final VoidCallback onSave;
   final List<CategoryModel> allCategories;
+  // Selection is reported to the owner screen (which outlives rebuilds) —
+  // storing it in a build-local previously made dropdown choices vanish.
+  final ValueChanged<int?> onParentChanged;
 
   const _CategoryDialog({
     required this.formKey,
@@ -210,11 +214,11 @@ class _CategoryDialog extends StatelessWidget {
     required this.editingId,
     required this.onSave,
     required this.allCategories,
+    required this.onParentChanged,
   });
 
   @override
   Widget build(BuildContext context) {
-    int localParentId = parentCategoryId;
     return AlertDialog(
       title: Text(editingId == null ? 'Add Category' : 'Edit Category'),
       content: SingleChildScrollView(
@@ -234,20 +238,16 @@ class _CategoryDialog extends StatelessWidget {
                 decoration: const InputDecoration(labelText: 'Category Number', border: OutlineInputBorder()),
               ),
               const SizedBox(height: 12),
-              StatefulBuilder(
-                builder: (context, setState) => DropdownButtonFormField<int>(
-                  value: localParentId == 0 && allCategories.isNotEmpty
-                      ? allCategories.first.id
-                      : localParentId,
-                  decoration: const InputDecoration(labelText: 'Parent Category', border: OutlineInputBorder()),
-                  items: [
-                    const DropdownMenuItem(value: 0, child: Text('None (Root)')),
-                    ...allCategories.where((c) => c.id != editingId).map((c) {
-                      return DropdownMenuItem(value: c.id, child: Text(c.description ?? 'Category ${c.id}'));
-                    }),
-                  ],
-                  onChanged: (value) => localParentId = value ?? 0,
-                ),
+              DropdownButtonFormField<int>(
+                value: parentCategoryId,
+                decoration: const InputDecoration(labelText: 'Parent Category', border: OutlineInputBorder()),
+                items: [
+                  const DropdownMenuItem(value: 0, child: Text('None (Root)')),
+                  ...allCategories.where((c) => c.id != editingId).map((c) {
+                    return DropdownMenuItem(value: c.id, child: Text(c.description ?? 'Category ${c.id}'));
+                  }),
+                ],
+                onChanged: (value) => onParentChanged(value ?? 0),
               ),
               const SizedBox(height: 12),
               TextFormField(

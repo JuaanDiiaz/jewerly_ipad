@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:p_a_jewerly/providers/product_provider.dart';
 import 'package:p_a_jewerly/providers/product_image_provider.dart';
 import 'package:p_a_jewerly/theme/app_theme.dart';
-import 'package:p_a_jewerly/models/product_image_model.dart';
+import 'package:p_a_jewerly/widgets/picked_image.dart';
 import 'package:p_a_jewerly/widgets/product_image_gallery.dart';
 import 'package:p_a_jewerly/widgets/loading_overlay.dart';
 
@@ -23,7 +23,10 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
   final _imagePicker = ImagePicker();
   int? _editingId;
   String? _primaryImagePath;
-  List<String> _additionalImages = [];
+  // Freshly picked images must be kept as bytes: on Flutter web the path is
+  // a blob URL that neither File() nor MultipartFile.fromPath can touch.
+  Uint8List? _primaryImageBytes;
+  List<XFile> _additionalImages = [];
 
   @override
   void initState() {
@@ -44,6 +47,7 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
     _editingId = product?.id;
     _descriptionController.text = product?.description ?? '';
     _primaryImagePath = product?.picture;
+    _primaryImageBytes = null;
     _additionalImages = [];
 
     showDialog(
@@ -53,11 +57,6 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
   }
 
   Widget _buildProductDialog(dynamic product) {
-    final imageProvider = context.watch<ProductImageProvider>();
-    final productImages = _editingId != null
-        ? imageProvider.getImagesForProduct(_editingId!)
-        : <ProductImageModel>[];
-
     return StatefulBuilder(
       builder: (context, setState) {
         return Dialog(
@@ -68,7 +67,7 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
             width: 500,
             constraints: const BoxConstraints(maxHeight: 700),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.surfaceColor,
               borderRadius: BorderRadius.circular(20),
             ),
             child: Column(
@@ -88,7 +87,7 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
                       const SizedBox(width: 12),
                       Text(
                         product == null ? 'Add New Product' : 'Edit Product',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Colors.white,
                           fontSize: 20,
                           fontWeight: FontWeight.w600,
@@ -108,12 +107,12 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         // Primary Image Section
-                        const Text(
+                        Text(
                           'Primary Image',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: AppTheme.darkText,
+                            color: AppTheme.textColor,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -124,8 +123,10 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
                               imageQuality: 85,
                             );
                             if (pickedFile != null) {
+                              final bytes = await pickedFile.readAsBytes();
                               setState(() {
                                 _primaryImagePath = pickedFile.path;
+                                _primaryImageBytes = bytes;
                               });
                             }
                           },
@@ -133,34 +134,35 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
                             height: 150,
                             width: double.infinity,
                             decoration: BoxDecoration(
-                              color: AppTheme.cream,
+                              color: AppTheme.background,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
                                 color: AppTheme.primaryGold.withOpacity(0.3),
                                 width: 1.5,
                               ),
                             ),
-                            child: _primaryImagePath != null && _primaryImagePath!.isNotEmpty
+                            child: (_primaryImageBytes != null ||
+                                    (_primaryImagePath != null && _primaryImagePath!.isNotEmpty))
                                 ? Stack(
                                     fit: StackFit.expand,
                                     children: [
                                       ClipRRect(
                                         borderRadius: BorderRadius.circular(12),
-                                        child: _primaryImagePath!.startsWith('http')
-                                            ? Image.network(
-                                                _primaryImagePath!,
-                                                fit: BoxFit.cover,
-                                              )
-                                            : Image.file(
-                                                File(_primaryImagePath!),
-                                                fit: BoxFit.cover,
-                                              ),
+                                        // Picked files must be shown from bytes on
+                                        // web (no dart:io); server URLs via network.
+                                        child: PickedImage(
+                                          url: _primaryImageBytes == null ? _primaryImagePath : null,
+                                          bytes: _primaryImageBytes,
+                                        ),
                                       ),
                                       Positioned(
                                         top: 8,
                                         right: 8,
                                         child: GestureDetector(
-                                          onTap: () => setState(() => _primaryImagePath = null),
+                                          onTap: () => setState(() {
+                                            _primaryImagePath = null;
+                                            _primaryImageBytes = null;
+                                          }),
                                           child: Container(
                                             padding: const EdgeInsets.all(4),
                                             decoration: const BoxDecoration(
@@ -185,7 +187,7 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
                                       Text(
                                         'Tap to add primary image',
                                         style: TextStyle(
-                                          color: AppTheme.subtleText,
+                                          color: AppTheme.mutedText,
                                           fontSize: 14,
                                         ),
                                       ),
@@ -197,12 +199,12 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
                         const SizedBox(height: 20),
 
                         // Description Field
-                        const Text(
+                        Text(
                           'Description',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: AppTheme.darkText,
+                            color: AppTheme.textColor,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -212,7 +214,7 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
                             controller: _descriptionController,
                             decoration: InputDecoration(
                               hintText: 'e.g., Gold Ring - Size 7',
-                              hintStyle: TextStyle(color: AppTheme.subtleText.withOpacity(0.5)),
+                              hintStyle: TextStyle(color: AppTheme.mutedText.withOpacity(0.5)),
                             ),
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
@@ -232,12 +234,12 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
+                            Text(
                               'Additional Images',
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
-                                color: AppTheme.darkText,
+                                color: AppTheme.textColor,
                               ),
                             ),
                             if (_editingId != null)
@@ -248,7 +250,7 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
                                     '${images.length} images',
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: AppTheme.subtleText,
+                                      color: AppTheme.mutedText,
                                     ),
                                   );
                                 },
@@ -261,6 +263,7 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
                           existingImageUrls: _additionalImages,
                           isEditable: true,
                           primaryImageUrl: _primaryImagePath,
+                          primaryImageBytes: _primaryImageBytes,
                           heroTag: _editingId != null ? 'product-hero-$_editingId' : null,
                           onImagesChanged: (images) {
                             setState(() {
@@ -277,7 +280,7 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppTheme.cream,
+                    color: AppTheme.background,
                     borderRadius: const BorderRadius.only(
                       bottomLeft: Radius.circular(20),
                       bottomRight: Radius.circular(20),
@@ -295,7 +298,7 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
                         onPressed: () => _saveProduct(setState),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.primaryGold,
-                          foregroundColor: AppTheme.darkText,
+                          foregroundColor: AppTheme.textColor,
                         ),
                         child: const Text('Save'),
                       ),
@@ -324,6 +327,7 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
     final productData = {
       'description': _descriptionController.text.trim(),
       'picture': _primaryImagePath,
+      if (_primaryImageBytes != null) 'pictureBytes': _primaryImageBytes,
     };
 
     if (_editingId == null) {
@@ -332,10 +336,10 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
 
       if (success && provider.lastCreatedProductId != null) {
         // Upload additional images for the new product
-        for (final imagePath in _additionalImages) {
+        for (final imageFile in _additionalImages) {
           await imageProvider.addProductImage(
             provider.lastCreatedProductId!,
-            imagePath,
+            imageFile,
             'Product image',
           );
         }
@@ -408,7 +412,7 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
           if (provider.isLoading && provider.products.isEmpty) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (provider.error != null) {
+          if (provider.error != null && provider.products.isEmpty) {
             return AppErrorWidget(
               message: provider.error!,
               onRetry: () => provider.fetchProducts(),
@@ -429,7 +433,7 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
                     'No products yet',
                     style: TextStyle(
                       fontSize: 20,
-                      color: AppTheme.subtleText,
+                      color: AppTheme.mutedText,
                       fontFamily: 'PlayfairDisplay',
                     ),
                   ),
@@ -438,7 +442,7 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
                     'Tap the + button to add your first product',
                     style: TextStyle(
                       fontSize: 14,
-                      color: AppTheme.subtleText.withOpacity(0.7),
+                      color: AppTheme.mutedText.withOpacity(0.7),
                     ),
                   ),
                 ],
@@ -446,8 +450,41 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
             );
           }
 
+          // Refresh failure with stale rows: keep the grid usable, surface
+          // the failure as a banner instead of swallowing it.
+          if (provider.error != null) {
+            return Column(
+              children: [
+                ErrorBanner(message: provider.error!, onRetry: () => provider.fetchProducts()),
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: () => provider.fetchProducts(),
+                    child: _buildProductGrid(provider),
+                  ),
+                ),
+              ],
+            );
+          }
+
           // Grid View
-          return GridView.builder(
+          return RefreshIndicator(
+            onRefresh: () => provider.fetchProducts(),
+            child: _buildProductGrid(provider),
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _openProductDialog(),
+        icon: const Icon(Icons.add),
+        label: const Text('New Product'),
+        backgroundColor: AppTheme.primaryGold,
+        foregroundColor: AppTheme.textColor,
+      ),
+    );
+  }
+
+  Widget _buildProductGrid(ProductProvider provider) {
+    return GridView.builder(
             padding: const EdgeInsets.all(16),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 3,
@@ -461,16 +498,6 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
               return _buildProductCard(product);
             },
           );
-        },
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openProductDialog(),
-        icon: const Icon(Icons.add),
-        label: const Text('New Product'),
-        backgroundColor: AppTheme.primaryGold,
-        foregroundColor: AppTheme.darkText,
-      ),
-    );
   }
 
   Widget _buildProductCard(dynamic product) {
@@ -541,7 +568,7 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
                             const SizedBox(width: 4),
                             Text(
                               '${imageCount + 1}', // +1 for primary image
-                              style: const TextStyle(color: Colors.white, fontSize: 12),
+                              style: TextStyle(color: Colors.white, fontSize: 12),
                             ),
                           ],
                         ),
@@ -558,10 +585,10 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
                 children: [
                   Text(
                     product.description ?? 'Product #${product.id}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: AppTheme.darkText,
+                      color: AppTheme.textColor,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -571,7 +598,7 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
                     'ID: ${product.id}',
                     style: TextStyle(
                       fontSize: 12,
-                      color: AppTheme.subtleText,
+                      color: AppTheme.mutedText,
                     ),
                   ),
                   const SizedBox(height: 8),

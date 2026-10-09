@@ -19,6 +19,7 @@ import 'package:p_a_jewerly/models/supplier_model.dart';
 import 'package:p_a_jewerly/models/product_model.dart';
 import 'package:p_a_jewerly/models/supplier_product_model.dart';
 import 'package:p_a_jewerly/theme/app_theme.dart';
+import 'package:p_a_jewerly/utils/format.dart';
 import 'package:p_a_jewerly/widgets/loading_overlay.dart';
 
 class PurchasesMainScreen extends StatefulWidget {
@@ -32,6 +33,9 @@ class _PurchasesMainScreenState extends State<PurchasesMainScreen> {
   String _statusFilter = 'All';
   final _searchController = TextEditingController();
   String _searchQuery = '';
+  // Guards double-taps on the print buttons — PDF work is slow and the
+  // sheet stays open behind it, so a second press would stack jobs.
+  bool _isGeneratingPdf = false;
 
   @override
   void initState() {
@@ -76,7 +80,7 @@ class _PurchasesMainScreenState extends State<PurchasesMainScreen> {
       case 'cancelled':
         return AppTheme.error;
       default:
-        return AppTheme.subtleText;
+        return AppTheme.mutedText;
     }
   }
 
@@ -131,6 +135,27 @@ class _PurchasesMainScreenState extends State<PurchasesMainScreen> {
   }
 
   Future<void> _generatePdf(PurchaseOrderHeaderModel order) async {
+    if (_isGeneratingPdf) return;
+    _isGeneratingPdf = true;
+    try {
+      await _buildAndPrintPdf(order);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          successSnackBar('Purchase order PDF ready'),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          errorSnackBar('Failed to generate PDF: $e'),
+        );
+      }
+    } finally {
+      _isGeneratingPdf = false;
+    }
+  }
+
+  Future<void> _buildAndPrintPdf(PurchaseOrderHeaderModel order) async {
     final supplierProvider = context.read<SupplierProvider>();
     final purchaseProvider = context.read<PurchaseOrderProvider>();
     final productProvider = context.read<ProductProvider>();
@@ -141,8 +166,12 @@ class _PurchasesMainScreenState extends State<PurchasesMainScreen> {
       orElse: () => SupplierModel(id: 0, name: 'Unknown'),
     );
 
-    // Fetch order details
+    // Fetch order details (the provider swallows fetch errors into state,
+    // so an empty result with an error is a failure, not an empty order)
     await purchaseProvider.fetchOrderDetails(order.id);
+    if (purchaseProvider.error != null) {
+      throw Exception(purchaseProvider.error);
+    }
     final details = purchaseProvider.orderDetails;
 
     final pdf = pw.Document();
@@ -274,8 +303,8 @@ class _PurchasesMainScreenState extends State<PurchasesMainScreen> {
                     _buildTableCell(product.description ?? 'Product #${detail.productId}'),
                     _buildTableCell(supplierCode),
                     _buildTableCell(detail.quantity.toString()),
-                    _buildTableCell('\$${(detail.unitPrice ?? 0).toStringAsFixed(2)}'),
-                    _buildTableCell('\$${(detail.total ?? 0).toStringAsFixed(2)}'),
+                    _buildTableCell('${formatCurrency((detail.unitPrice ?? 0))}'),
+                    _buildTableCell('${formatCurrency((detail.total ?? 0))}'),
                   ],
                 );
               }),
@@ -295,7 +324,7 @@ class _PurchasesMainScreenState extends State<PurchasesMainScreen> {
                   children: [
                     pw.Text('TOTAL: ', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                     pw.Text(
-                      '\$${(order.total ?? 0).toStringAsFixed(2)}',
+                      '${formatCurrency((order.total ?? 0))}',
                       style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
                     ),
                   ],
@@ -383,7 +412,7 @@ class _PurchasesMainScreenState extends State<PurchasesMainScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.surfaceColor,
               boxShadow: [
                 BoxShadow(
                   color: AppTheme.deepPurple.withOpacity(0.05),
@@ -412,7 +441,7 @@ class _PurchasesMainScreenState extends State<PurchasesMainScreen> {
                         borderSide: BorderSide.none,
                       ),
                       filled: true,
-                      fillColor: AppTheme.cream,
+                      fillColor: AppTheme.background,
                     ),
                   ),
                 ),
@@ -446,7 +475,7 @@ class _PurchasesMainScreenState extends State<PurchasesMainScreen> {
                 if (orderProvider.isLoading && orderProvider.orders.isEmpty) {
                   return const Center(child: CircularProgressIndicator(color: AppTheme.primaryGold));
                 }
-                if (orderProvider.error != null) {
+                if (orderProvider.error != null && orderProvider.orders.isEmpty) {
                   return AppErrorWidget(
                     message: orderProvider.error!,
                     onRetry: () => orderProvider.fetchOrders(),
@@ -459,9 +488,9 @@ class _PurchasesMainScreenState extends State<PurchasesMainScreen> {
                       children: [
                         Icon(Icons.shopping_bag_outlined, size: 64, color: AppTheme.primaryGold.withOpacity(0.5)),
                         const SizedBox(height: 16),
-                        Text('No purchase orders', style: TextStyle(fontSize: 18, color: AppTheme.subtleText)),
+                        Text('No purchase orders', style: TextStyle(fontSize: 18, color: AppTheme.mutedText)),
                         const SizedBox(height: 8),
-                        Text('Create your first purchase order', style: TextStyle(color: AppTheme.subtleText)),
+                        Text('Create your first purchase order', style: TextStyle(color: AppTheme.mutedText)),
                       ],
                     ),
                   );
@@ -474,23 +503,35 @@ class _PurchasesMainScreenState extends State<PurchasesMainScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.search_off, size: 64, color: AppTheme.subtleText.withOpacity(0.5)),
+                        Icon(Icons.search_off, size: 64, color: AppTheme.mutedText.withOpacity(0.5)),
                         const SizedBox(height: 16),
-                        Text('No orders match your search', style: TextStyle(color: AppTheme.subtleText)),
+                        Text('No orders match your search', style: TextStyle(color: AppTheme.mutedText)),
                       ],
                     ),
                   );
                 }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: filteredOrders.length,
-                  itemBuilder: (context, index) {
-                    final order = filteredOrders[index];
-                    final supplierName = _getSupplierName(order.supplierId, supplierProvider.suppliers);
-                    final statusColor = _getStatusColor(order.status);
+                return RefreshIndicator(
+                  onRefresh: () => orderProvider.fetchOrders(),
+                  // A refresh failure with stale rows keeps the list visible
+                  // and surfaces the failure as a banner instead of swallowing it.
+                  child: Column(
+                    children: [
+                      if (orderProvider.error != null)
+                        ErrorBanner(
+                          message: orderProvider.error!,
+                          onRetry: () => orderProvider.fetchOrders(),
+                        ),
+                      Expanded(
+                        child: ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: filteredOrders.length,
+                          itemBuilder: (context, index) {
+                            final order = filteredOrders[index];
+                            final supplierName = _getSupplierName(order.supplierId, supplierProvider.suppliers);
+                            final statusColor = _getStatusColor(order.status);
 
-                    return Container(
+                            return Container(
                       margin: const EdgeInsets.only(bottom: 12),
                       decoration: AppTheme.goldBorderDecoration(),
                       child: ListTile(
@@ -528,10 +569,10 @@ class _PurchasesMainScreenState extends State<PurchasesMainScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const SizedBox(height: 4),
-                            Text(supplierName, style: TextStyle(color: AppTheme.subtleText)),
+                            Text(supplierName, style: TextStyle(color: AppTheme.mutedText)),
                             Text(
                               'Order Date: ${order.orderDate != null ? DateFormat('MMM dd, yyyy').format(order.orderDate!) : 'N/A'}',
-                              style: TextStyle(color: AppTheme.subtleText, fontSize: 12),
+                              style: TextStyle(color: AppTheme.mutedText, fontSize: 12),
                             ),
                           ],
                         ),
@@ -545,7 +586,7 @@ class _PurchasesMainScreenState extends State<PurchasesMainScreen> {
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
-                                '\$${(order.total ?? 0).toStringAsFixed(2)}',
+                                '${formatCurrency((order.total ?? 0))}',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: AppTheme.success,
@@ -571,6 +612,10 @@ class _PurchasesMainScreenState extends State<PurchasesMainScreen> {
                       ),
                     );
                   },
+                        ),
+                      ),
+                    ],
+                  ),
                 );
               },
             ),
@@ -582,7 +627,7 @@ class _PurchasesMainScreenState extends State<PurchasesMainScreen> {
         icon: const Icon(Icons.add),
         label: const Text('New Order'),
         backgroundColor: AppTheme.primaryGold,
-        foregroundColor: AppTheme.darkText,
+        foregroundColor: AppTheme.textColor,
       ),
     );
   }
@@ -613,6 +658,7 @@ class _CreateOrderSheetState extends State<_CreateOrderSheet> {
   String _status = 'Pending';
   String _notes = '';
   final List<_OrderItem> _items = [];
+  bool _isSavingOrder = false;
 
   @override
   Widget build(BuildContext context) {
@@ -622,7 +668,7 @@ class _CreateOrderSheetState extends State<_CreateOrderSheet> {
       maxChildSize: 0.95,
       builder: (context, scrollController) => Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.surfaceColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: SingleChildScrollView(
@@ -699,7 +745,7 @@ class _CreateOrderSheetState extends State<_CreateOrderSheet> {
                               icon: const Icon(Icons.settings),
                               tooltip: 'Manage Products',
                               style: IconButton.styleFrom(
-                                backgroundColor: AppTheme.cream,
+                                backgroundColor: AppTheme.background,
                               ),
                             ),
                           ],
@@ -806,7 +852,7 @@ class _CreateOrderSheetState extends State<_CreateOrderSheet> {
                         label: const Text('Add Item'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.primaryGold,
-                          foregroundColor: AppTheme.darkText,
+                          foregroundColor: AppTheme.textColor,
                         ),
                       ),
                     ],
@@ -817,7 +863,7 @@ class _CreateOrderSheetState extends State<_CreateOrderSheet> {
                     Container(
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
-                        color: AppTheme.cream,
+                        color: AppTheme.background,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Center(
@@ -825,7 +871,7 @@ class _CreateOrderSheetState extends State<_CreateOrderSheet> {
                           _selectedSupplierId == null
                               ? 'Select a supplier first'
                               : 'No items added. Click "Add Item" to add products.',
-                          style: TextStyle(color: AppTheme.subtleText),
+                          style: TextStyle(color: AppTheme.mutedText),
                           textAlign: TextAlign.center,
                         ),
                       ),
@@ -852,7 +898,7 @@ class _CreateOrderSheetState extends State<_CreateOrderSheet> {
                         children: [
                           const Text('Total:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                           Text(
-                            '\$${_calculateTotal().toStringAsFixed(2)}',
+                            '${formatCurrency(_calculateTotal())}',
                             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.success),
                           ),
                         ],
@@ -868,7 +914,7 @@ class _CreateOrderSheetState extends State<_CreateOrderSheet> {
                           onPressed: () => Navigator.pop(context),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
-                            side: BorderSide(color: AppTheme.subtleText),
+                            side: BorderSide(color: AppTheme.mutedText),
                           ),
                           child: const Text('Cancel'),
                         ),
@@ -877,7 +923,7 @@ class _CreateOrderSheetState extends State<_CreateOrderSheet> {
                       Expanded(
                         flex: 2,
                         child: ElevatedButton(
-                          onPressed: _saveOrder,
+                          onPressed: _isSavingOrder ? null : _saveOrder,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.success,
                             foregroundColor: Colors.white,
@@ -1031,7 +1077,7 @@ class _CreateOrderSheetState extends State<_CreateOrderSheet> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Subtotal: \$${item.total.toStringAsFixed(2)}',
+            'Subtotal: ${formatCurrency(item.total)}',
             style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.success),
           ),
         ],
@@ -1040,6 +1086,7 @@ class _CreateOrderSheetState extends State<_CreateOrderSheet> {
   }
 
   Future<void> _saveOrder() async {
+    if (_isSavingOrder) return;
     if (!_formKey.currentState!.validate()) return;
     if (_items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(errorSnackBar('Please add at least one item'));
@@ -1049,6 +1096,8 @@ class _CreateOrderSheetState extends State<_CreateOrderSheet> {
       ScaffoldMessenger.of(context).showSnackBar(errorSnackBar('Please select a product for all items'));
       return;
     }
+
+    setState(() => _isSavingOrder = true);
 
     final orderProvider = context.read<PurchaseOrderProvider>();
 
@@ -1064,25 +1113,43 @@ class _CreateOrderSheetState extends State<_CreateOrderSheet> {
 
     final createdOrder = await orderProvider.createOrder(order);
 
-    if (createdOrder != null && createdOrder.id > 0) {
-      // Create details
-      for (final item in _items) {
-        if (item.productId != null) {
-          await orderProvider.addOrderDetail(PurchaseOrderDetailModel(
-            id: 0,
-            purchaseOrderId: createdOrder.id,
-            productId: item.productId,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            total: item.total,
-          ));
-        }
-      }
-      widget.onOrderCreated();
-    } else {
+    if (!mounted) return;
+    if (createdOrder == null || createdOrder.id <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         errorSnackBar(orderProvider.error ?? 'Failed to create order'),
       );
+      if (mounted) setState(() => _isSavingOrder = false);
+      return;
+    }
+
+    // Create details — the API has no single-transaction endpoint, so track
+    // per-item failures instead of ignoring them: a header whose details
+    // partially failed must NOT be reported as fully created.
+    var failedItems = 0;
+    for (final item in _items) {
+      if (item.productId == null) continue;
+      final ok = await orderProvider.addOrderDetail(PurchaseOrderDetailModel(
+        id: 0,
+        purchaseOrderId: createdOrder.id,
+        productId: item.productId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        total: item.total,
+      ));
+      if (!ok) failedItems++;
+      if (!mounted) return;
+    }
+
+    if (failedItems > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        errorSnackBar(
+          'The order was created but $failedItems of ${_items.length} items failed to save. '
+          'Open the order in the list and add the missing items before completing it.',
+        ),
+      );
+      if (mounted) setState(() => _isSavingOrder = false);
+    } else {
+      widget.onOrderCreated();
     }
   }
 }
@@ -1121,7 +1188,7 @@ class _SupplierProductsSheetState extends State<_SupplierProductsSheet> {
       maxChildSize: 0.95,
       builder: (context, scrollController) => Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.surfaceColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: SingleChildScrollView(
@@ -1177,11 +1244,11 @@ class _SupplierProductsSheetState extends State<_SupplierProductsSheet> {
                       return Container(
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
-                          color: AppTheme.cream,
+                          color: AppTheme.background,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Center(
-                          child: Text('No products linked yet', style: TextStyle(color: AppTheme.subtleText)),
+                          child: Text('No products linked yet', style: TextStyle(color: AppTheme.mutedText)),
                         ),
                       );
                     }
@@ -1240,7 +1307,7 @@ class _SupplierProductsSheetState extends State<_SupplierProductsSheet> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppTheme.cream,
+                    color: AppTheme.background,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(
@@ -1267,7 +1334,7 @@ class _SupplierProductsSheetState extends State<_SupplierProductsSheet> {
                               labelText: 'Select Product',
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                               filled: true,
-                              fillColor: Colors.white,
+                              fillColor: AppTheme.raisedColor,
                             ),
                             items: [
                               const DropdownMenuItem(value: null, child: Text('Choose a product')),
@@ -1292,7 +1359,7 @@ class _SupplierProductsSheetState extends State<_SupplierProductsSheet> {
                                 labelText: 'Art Code',
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                                 filled: true,
-                                fillColor: Colors.white,
+                                fillColor: AppTheme.raisedColor,
                               ),
                             ),
                           ),
@@ -1304,7 +1371,7 @@ class _SupplierProductsSheetState extends State<_SupplierProductsSheet> {
                                 labelText: 'Style Code',
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                                 filled: true,
-                                fillColor: Colors.white,
+                                fillColor: AppTheme.raisedColor,
                               ),
                             ),
                           ),
@@ -1318,7 +1385,7 @@ class _SupplierProductsSheetState extends State<_SupplierProductsSheet> {
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                           prefixText: '\$',
                           filled: true,
-                          fillColor: Colors.white,
+                          fillColor: AppTheme.raisedColor,
                         ),
                         keyboardType: TextInputType.number,
                       ),
@@ -1329,7 +1396,7 @@ class _SupplierProductsSheetState extends State<_SupplierProductsSheet> {
                           labelText: 'Description (Optional)',
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                           filled: true,
-                          fillColor: Colors.white,
+                          fillColor: AppTheme.raisedColor,
                         ),
                         maxLines: 2,
                       ),
@@ -1443,6 +1510,11 @@ class _OrderDetailsSheetState extends State<_OrderDetailsSheet> {
     _selectedStatus = widget.order.status ?? 'Pending';
     _receptionDate = widget.order.receptionDate;
     _notes = widget.order.notes ?? '';
+    // Order details are only in provider state if something else fetched them
+    // (printing). Fetch here so opening the sheet directly shows the items.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<PurchaseOrderProvider>().fetchOrderDetails(widget.order.id);
+    });
   }
 
   @override
@@ -1453,7 +1525,7 @@ class _OrderDetailsSheetState extends State<_OrderDetailsSheet> {
       maxChildSize: 0.95,
       builder: (context, scrollController) => Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.surfaceColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: SingleChildScrollView(
@@ -1596,7 +1668,7 @@ class _OrderDetailsSheetState extends State<_OrderDetailsSheet> {
                 const SizedBox(height: 12),
 
                 // Total
-                _buildInfoCard('Total', '\$${(widget.order.total ?? 0).toStringAsFixed(2)}'),
+                _buildInfoCard('Total', '${formatCurrency((widget.order.total ?? 0))}'),
                 const SizedBox(height: 24),
 
                 // Save Button (only in edit mode)
@@ -1630,14 +1702,42 @@ class _OrderDetailsSheetState extends State<_OrderDetailsSheet> {
                         .toList();
 
                     if (details.isEmpty) {
+                      // A failed fetch presents as an error with retry, not
+                      // as "No items", so it can't be mistaken for an empty
+                      // order.
+                      if (provider.error != null) {
+                        return Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AppTheme.error.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.error_outline, color: AppTheme.error),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'Could not load order items: ${provider.error}',
+                                  style: TextStyle(color: AppTheme.error, fontSize: 12),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () => provider.fetchOrderDetails(widget.order.id),
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
                       return Container(
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
-                          color: AppTheme.cream,
+                          color: AppTheme.background,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Center(
-                          child: Text('No items', style: TextStyle(color: AppTheme.subtleText)),
+                          child: Text('No items', style: TextStyle(color: AppTheme.mutedText)),
                         ),
                       );
                     }
@@ -1678,12 +1778,12 @@ class _OrderDetailsSheetState extends State<_OrderDetailsSheet> {
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    if (code != '-') Text('Code: $code', style: TextStyle(color: AppTheme.subtleText, fontSize: 12)),
-                                    Text('Qty: ${detail.quantity} × \$${(detail.unitPrice ?? 0).toStringAsFixed(2)}'),
+                                    if (code != '-') Text('Code: $code', style: TextStyle(color: AppTheme.mutedText, fontSize: 12)),
+                                    Text('Qty: ${detail.quantity} × ${formatCurrency((detail.unitPrice ?? 0))}'),
                                   ],
                                 ),
                                 trailing: Text(
-                                  '\$${(detail.total ?? 0).toStringAsFixed(2)}',
+                                  '${formatCurrency((detail.total ?? 0))}',
                                   style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.success),
                                 ),
                               ),
@@ -1703,7 +1803,7 @@ class _OrderDetailsSheetState extends State<_OrderDetailsSheet> {
                     onPressed: () => Navigator.pop(context),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryGold,
-                      foregroundColor: AppTheme.darkText,
+                      foregroundColor: AppTheme.textColor,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
                     child: const Text('Close'),
@@ -1729,7 +1829,7 @@ class _OrderDetailsSheetState extends State<_OrderDetailsSheet> {
       case 'cancelled':
         return AppTheme.error;
       default:
-        return AppTheme.subtleText;
+        return AppTheme.mutedText;
     }
   }
 
@@ -1740,7 +1840,7 @@ class _OrderDetailsSheetState extends State<_OrderDetailsSheet> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(color: AppTheme.subtleText, fontWeight: FontWeight.w500)),
+          Text(label, style: TextStyle(color: AppTheme.mutedText, fontWeight: FontWeight.w500)),
           Text(
             value,
             style: TextStyle(fontWeight: FontWeight.w600, color: valueColor),
@@ -1794,6 +1894,10 @@ class _OrderDetailsSheetState extends State<_OrderDetailsSheet> {
 
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(successSnackBar('Order completed and inventory updated'));
+        // Complete added stock server-side; refresh so the sale screen and
+        // inventory list show it without a restart. Fire-and-forget is fine:
+        // Consumer widgets repaint when the fetch lands.
+        context.read<InventoryProvider>().fetchInventory();
         setState(() => _isEditing = false);
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

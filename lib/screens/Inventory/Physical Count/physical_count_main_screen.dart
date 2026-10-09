@@ -492,6 +492,11 @@ class _PhysicalCountMainScreenState extends State<PhysicalCountMainScreen> {
       final api = ApiService();
       final inventoryProvider = context.read<InventoryProvider>();
 
+      // Track per-item results: a count adjustment must never be silently
+      // lost — if any item fails, the session stays open so the cashier can
+      // retry, instead of deleting the only local record of the variances.
+      var succeeded = 0;
+      final failed = <PhysicalCountItem>[];
       for (final item in adjustments) {
         try {
           // Create inventory movement
@@ -517,25 +522,39 @@ class _PhysicalCountMainScreenState extends State<PhysicalCountMainScreen> {
               },
             );
           }
+          succeeded++;
         } catch (e) {
           debugPrint('Error creating movement for item ${item.productId}: $e');
+          failed.add(item);
         }
       }
 
       // Refresh inventory
       await inventoryProvider.fetchInventory();
 
-      // Update session status
-      setState(() {
-        _currentSession!.status = 'Completed';
-        _savedSessions.removeWhere((s) => s.id == _currentSession!.id);
-      });
-      await _saveSessionsToStorage();
+      if (failed.isNotEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            errorSnackBar(
+              '${failed.length} of ${adjustments.length} adjustments FAILED to save '
+              '($succeeded recorded). The count session stays open — press '
+              'Complete again to retry the failed items.',
+            ),
+          );
+        }
+      } else {
+        // All adjustments committed — now it is safe to close the session
+        setState(() {
+          _currentSession!.status = 'Completed';
+          _savedSessions.removeWhere((s) => s.id == _currentSession!.id);
+        });
+        await _saveSessionsToStorage();
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          successSnackBar('Physical count completed! ${adjustments.length} adjustments recorded.'),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            successSnackBar('Physical count completed! $succeeded adjustments recorded.'),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -544,7 +563,7 @@ class _PhysicalCountMainScreenState extends State<PhysicalCountMainScreen> {
         );
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -613,7 +632,7 @@ class _PhysicalCountMainScreenState extends State<PhysicalCountMainScreen> {
                   children: [
                     Expanded(
                       child: Card(
-                        color: AppTheme.cream,
+                        color: AppTheme.background,
                         child: Padding(
                           padding: const EdgeInsets.all(12),
                           child: Column(
@@ -833,7 +852,7 @@ class _PhysicalCountMainScreenState extends State<PhysicalCountMainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.cream,
+      backgroundColor: AppTheme.background,
       appBar: AppBar(
         title: const Text('Physical Count'),
         backgroundColor: AppTheme.deepPurple,

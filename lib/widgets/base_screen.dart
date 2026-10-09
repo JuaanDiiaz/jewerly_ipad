@@ -39,9 +39,7 @@ class BaseScreen extends StatelessWidget {
 
   Widget _buildBody() {
     if (isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppTheme.primaryGold),
-      );
+      return const SkeletonList();
     }
 
     if (error != null) {
@@ -73,6 +71,109 @@ class BaseScreen extends StatelessWidget {
   }
 }
 
+/// Skeleton list with a pulsing opacity shimmer (no external package) that
+/// hints at the card layout actually about to appear.
+class SkeletonList extends StatefulWidget {
+  final int itemCount;
+  final double itemHeight;
+
+  const SkeletonList({
+    super.key,
+    this.itemCount = 8,
+    this.itemHeight = 84,
+  });
+
+  @override
+  State<SkeletonList> createState() => _SkeletonListState();
+}
+
+class _SkeletonListState extends State<SkeletonList>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _opacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+    _opacity = Tween<double>(begin: 0.35, end: 0.9).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: widget.itemCount,
+      itemBuilder: (context, index) {
+        return FadeTransition(
+          opacity: _opacity,
+          child: Container(
+            height: widget.itemHeight,
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.raisedColor,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: AppTheme.hairline,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        height: 14,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: AppTheme.hairline,
+                          borderRadius: BorderRadius.circular(7),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      FractionallySizedBox(
+                        widthFactor: 0.5,
+                        alignment: Alignment.centerLeft,
+                        child: Container(
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: AppTheme.hairline,
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 /// Empty state placeholder widget
 class EmptyState extends StatelessWidget {
   final IconData icon;
@@ -96,10 +197,10 @@ class EmptyState extends StatelessWidget {
         children: [
           Icon(icon, size: 64, color: AppTheme.primaryGold.withOpacity(0.5)),
           const SizedBox(height: 16),
-          Text(title, style: TextStyle(fontSize: 18, color: AppTheme.subtleText)),
+          Text(title, style: TextStyle(fontSize: 18, color: AppTheme.mutedText)),
           if (subtitle != null) ...[
             const SizedBox(height: 8),
-            Text(subtitle!, style: TextStyle(fontSize: 14, color: AppTheme.subtleText)),
+            Text(subtitle!, style: TextStyle(fontSize: 14, color: AppTheme.mutedText)),
           ],
           if (action != null) ...[
             const SizedBox(height: 16),
@@ -269,7 +370,7 @@ class _FormDialogState extends State<FormDialog> {
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryGold,
-                    foregroundColor: AppTheme.darkText,
+                    foregroundColor: AppTheme.textColor,
                   ),
                   child: Text(widget.saveLabel),
                 ),

@@ -37,12 +37,15 @@ class SalesTaxProvider extends ChangeNotifier {
 
     try {
       final response = await _apiService.post('/SalesTaxDetail', body: tax.toJson());
-      if (response != null) {
+      if (response is Map<String, dynamic>) {
         _salesTaxes.add(SalesTaxDetailModel.fromJson(response));
-        _isLoading = false;
-        notifyListeners();
-        return true;
+      } else {
+        // 2xx with empty body: it succeeded but returned no record — refetch
+        await fetchSalesTaxes();
       }
+      _isLoading = false;
+      notifyListeners();
+      return true;
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -59,15 +62,18 @@ class SalesTaxProvider extends ChangeNotifier {
 
     try {
       final response = await _apiService.put('/SalesTaxDetail/${tax.id}', body: tax.toJson());
-      if (response != null) {
+      if (response is Map<String, dynamic>) {
         final index = _salesTaxes.indexWhere((t) => t.id == tax.id);
         if (index != -1) {
           _salesTaxes[index] = SalesTaxDetailModel.fromJson(response);
         }
-        _isLoading = false;
-        notifyListeners();
-        return true;
+      } else {
+        // 2xx with empty body: it succeeded but returned no record — refetch
+        await fetchSalesTaxes();
       }
+      _isLoading = false;
+      notifyListeners();
+      return true;
     } catch (e) {
       _error = e.toString();
     } finally {

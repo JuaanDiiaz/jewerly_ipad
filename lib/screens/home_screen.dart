@@ -11,8 +11,12 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  Widget _currentWidget = const SaleScreen();
   bool _isSidebarCollapsed = false;
+  // Lazy IndexedStack: the active screen keeps its state when navigating away
+  // (search text, scroll position, tabs). Unvisited screens are only built
+  // the first time they are selected.
+  final Set<int> _visitedScreens = {0};
+  int _selectedScreenIndex = 0;
 
   final List<MenuItem> _menuItems = [
     MenuItem(
@@ -126,9 +130,27 @@ class _HomeScreenState extends State<HomeScreen> {
     ),
   ];
 
+  /// Flat list of screens, in a stable order, one per navigable menu leaf.
+  List<Widget> get _screens {
+    final screens = <Widget>[];
+    for (final item in _menuItems) {
+      if (item.subItems != null && item.subItems!.isNotEmpty) {
+        for (final sub in item.subItems!) {
+          if (sub.screen != null) screens.add(sub.screen!);
+        }
+      } else if (item.screen != null) {
+        screens.add(item.screen!);
+      }
+    }
+    return screens;
+  }
+
   void _navigateTo(Widget screen) {
+    final index = _screens.indexWhere((s) => s.runtimeType == screen.runtimeType);
+    if (index == -1) return;
     setState(() {
-      _currentWidget = screen;
+      _selectedScreenIndex = index;
+      _visitedScreens.add(index);
     });
   }
 
@@ -139,6 +161,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return SafeArea(
       child: Scaffold(
+        // Narrow screens have no sidebar: the drawer is reachable from this bar.
+        appBar: isTablet
+            ? null
+            : AppBar(
+                title: const Text('P&A Jewelry'),
+                leading: Builder(
+                  builder: (context) => IconButton(
+                    icon: const Icon(Icons.menu),
+                    onPressed: () => Scaffold.of(context).openDrawer(),
+                  ),
+                ),
+              ),
         body: Row(
           children: [
             if (isTablet)
@@ -152,17 +186,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     _isSidebarCollapsed = collapsed;
                   });
                 },
-                onItemSelected: (screen) {
-                  setState(() {
-                    _currentWidget = screen;
-                  });
-                },
+                onItemSelected: (screen) => _navigateTo(screen),
               ),
             Expanded(
               child: Container(
                 margin: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppTheme.cream,
+                  color: AppTheme.background,
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
@@ -174,7 +204,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
-                  child: _currentWidget,
+                  // Screens not yet visited are skipped so they don't fetch on
+                  // app start; each visited page keeps its state afterwards.
+                  child: IndexedStack(
+                    index: _selectedScreenIndex,
+                    children: [
+                      for (var i = 0; i < _screens.length; i++)
+                        _visitedScreens.contains(i) ? _screens[i] : const SizedBox.shrink(),
+                    ],
+                  ),
                 ),
               ),
             ),

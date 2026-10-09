@@ -67,7 +67,7 @@ class _PricesMainScreenState extends State<PricesMainScreen> {
                 if (provider.isLoading && provider.priceListDetails.isEmpty) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                if (provider.error != null) {
+                if (provider.error != null && provider.priceListDetails.isEmpty) {
                   return AppErrorWidget(
                     message: provider.error!,
                     onRetry: () => provider.fetchPriceListDetails(),
@@ -88,49 +88,85 @@ class _PricesMainScreenState extends State<PricesMainScreen> {
                     ),
                   );
                 }
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: provider.priceListDetails.length,
-                  itemBuilder: (context, index) {
-                    final item = provider.priceListDetails[index];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      elevation: 3,
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.all(16),
-                        leading: CircleAvatar(
-                          backgroundColor: Colors.amber[100],
-                          child: const Icon(Icons.attach_money, color: Colors.amber),
-                        ),
-                        title: Text(
-                          'Product ${item.productId}',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SizedBox(height: 4),
-                            Text('Price List ID: ${item.priceListId}'),
-                            Text('Price: \$${item.price?.toStringAsFixed(2) ?? '0.00'}'),
-                            if (item.validFrom != null)
-                              Text('Valid from: ${item.validFrom}'),
-                            if (item.validTo != null)
-                              Text('Valid to: ${item.validTo}'),
-                          ],
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete),
-                          onPressed: () => _confirmDelete(item.id),
-                        ),
+                // A refresh failure with stale rows keeps the list visible
+                // and surfaces the failure as a banner instead of swallowing it.
+                return Column(
+                  children: [
+                    if (provider.error != null)
+                      ErrorBanner(
+                        message: provider.error!,
+                        onRetry: () => provider.fetchPriceListDetails(),
                       ),
-                    );
-                  },
+                    Expanded(
+                      child: RefreshIndicator(
+                        onRefresh: () => provider.fetchPriceListDetails(),
+                        child: _buildList(provider),
+                      ),
+                    ),
+                  ],
                 );
               },
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildList(PriceListDetailProvider provider) {
+    final filtered = _filteredPriceLists;
+    if (filtered.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.search_off, size: 64, color: Colors.grey[500]),
+            const SizedBox(height: 16),
+            Text(
+              _searchQuery.isEmpty ? 'No price list details found' : 'No results for "$_searchQuery"',
+              style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: filtered.length,
+      itemBuilder: (context, index) {
+        final item = filtered[index];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          elevation: 3,
+          child: ListTile(
+            contentPadding: const EdgeInsets.all(16),
+            leading: CircleAvatar(
+              backgroundColor: Colors.amber[100],
+              child: const Icon(Icons.attach_money, color: Colors.amber),
+            ),
+            title: Text(
+              'Product ${item.productId}',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 4),
+                Text('Price List ID: ${item.priceListId}'),
+                Text('Price: \$${item.price?.toStringAsFixed(2) ?? '0.00'}'),
+                if (item.validFrom != null)
+                  Text('Valid from: ${item.validFrom}'),
+                if (item.validTo != null)
+                  Text('Valid to: ${item.validTo}'),
+              ],
+            ),
+            trailing: IconButton(
+              icon: const Icon(Icons.delete),
+              onPressed: () => _confirmDelete(item.id),
+            ),
+          ),
+        );
+      },
     );
   }
 

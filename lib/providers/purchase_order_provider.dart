@@ -59,12 +59,18 @@ class PurchaseOrderProvider extends ChangeNotifier {
 
     try {
       final response = await _apiService.post('/PurchaseOrderHeader', body: order.toJson());
-      if (response != null) {
+      if (response is Map<String, dynamic>) {
         final newOrder = PurchaseOrderHeaderModel.fromJson(response);
         _orders.add(newOrder);
         _isLoading = false;
         notifyListeners();
         return newOrder;
+      } else if (response == true) {
+        // 2xx with empty body: header was created but we have no id to attach
+        // details to, so we can't build this order. It already exists server-side!
+        _error =
+            'Order was created on the server but it returned no id. '
+            'Refresh the list and add items to it manually — do not retry creation.';
       }
     } catch (e) {
       _error = e.toString();
@@ -82,15 +88,18 @@ class PurchaseOrderProvider extends ChangeNotifier {
 
     try {
       final response = await _apiService.put('/PurchaseOrderHeader/${order.id}', body: order.toJson());
-      if (response != null) {
+      if (response is Map<String, dynamic>) {
         final index = _orders.indexWhere((o) => o.id == order.id);
         if (index != -1) {
           _orders[index] = PurchaseOrderHeaderModel.fromJson(response);
         }
-        _isLoading = false;
-        notifyListeners();
-        return true;
+      } else {
+        // 2xx with empty body: it succeeded but returned no record — refetch
+        await fetchOrders();
       }
+      _isLoading = false;
+      notifyListeners();
+      return true;
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -126,12 +135,14 @@ class PurchaseOrderProvider extends ChangeNotifier {
 
     try {
       final response = await _apiService.post('/PurchaseOrderDetail', body: detail.toJson());
-      if (response != null) {
+      if (response is Map<String, dynamic>) {
         _orderDetails.add(PurchaseOrderDetailModel.fromJson(response));
-        _isLoading = false;
-        notifyListeners();
-        return true;
       }
+      // 2xx with empty body: the detail was saved but returned no record to
+      // attach locally — the screen refetches details when it is opened.
+      _isLoading = false;
+      notifyListeners();
+      return true;
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -148,15 +159,17 @@ class PurchaseOrderProvider extends ChangeNotifier {
 
     try {
       final response = await _apiService.put('/PurchaseOrderDetail/${detail.id}', body: detail.toJson());
-      if (response != null) {
+      if (response is Map<String, dynamic>) {
         final index = _orderDetails.indexWhere((d) => d.id == detail.id);
         if (index != -1) {
           _orderDetails[index] = PurchaseOrderDetailModel.fromJson(response);
         }
-        _isLoading = false;
-        notifyListeners();
-        return true;
       }
+      // 2xx with empty body: the detail was saved but returned no record to
+      // attach locally — the screen refetches details when it is opened.
+      _isLoading = false;
+      notifyListeners();
+      return true;
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -206,19 +219,18 @@ class PurchaseOrderProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _apiService.post('/PurchaseOrderHeader/$orderId/Complete', body: {
+      await _apiService.post('/PurchaseOrderHeader/$orderId/Complete', body: {
         'warehouseId': warehouseId,
         'receptionDate': receptionDate?.toIso8601String().split('T')[0] ?? DateTime.now().toIso8601String().split('T')[0],
         'notes': notes ?? '',
       });
 
-      if (response != null) {
-        // Refresh orders to get updated status
-        await fetchOrders();
-        _isLoading = false;
-        notifyListeners();
-        return true;
-      }
+      // 2xx (even with empty body) means the order was completed
+      // Refresh orders to get updated status
+      await fetchOrders();
+      _isLoading = false;
+      notifyListeners();
+      return true;
     } catch (e) {
       _error = e.toString();
     } finally {

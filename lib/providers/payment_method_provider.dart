@@ -37,12 +37,15 @@ class PaymentMethodProvider extends ChangeNotifier {
 
     try {
       final response = await _apiService.post('/PaymentMethod', body: {'description': description});
-      if (response != null) {
+      if (response is Map<String, dynamic>) {
         _paymentMethods.add(PaymentMethodModel.fromJson(response));
-        _isLoading = false;
-        notifyListeners();
-        return true;
+      } else {
+        // 2xx with empty body: it succeeded but returned no record — refetch
+        await fetchPaymentMethods();
       }
+      _isLoading = false;
+      notifyListeners();
+      return true;
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -59,15 +62,18 @@ class PaymentMethodProvider extends ChangeNotifier {
 
     try {
       final response = await _apiService.put('/PaymentMethod/$id', body: {'id': id, 'description': description});
-      if (response != null) {
+      if (response is Map<String, dynamic>) {
         final index = _paymentMethods.indexWhere((p) => p.id == id);
         if (index != -1) {
           _paymentMethods[index] = PaymentMethodModel.fromJson(response);
         }
-        _isLoading = false;
-        notifyListeners();
-        return true;
+      } else {
+        // 2xx with empty body: it succeeded but returned no record — refetch
+        await fetchPaymentMethods();
       }
+      _isLoading = false;
+      notifyListeners();
+      return true;
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -114,11 +120,16 @@ class PaymentMethodProvider extends ChangeNotifier {
       final response = await _apiService.post('/PaymentMethod', body: {
         'description': 'Multiple Payments',
       });
-      if (response != null) {
+      if (response is Map<String, dynamic>) {
         final newMethod = PaymentMethodModel.fromJson(response);
         _paymentMethods.add(newMethod);
         notifyListeners();
         return newMethod.id;
+      } else {
+        // 2xx with empty body: it succeeded but returned no record — refetch
+        await fetchPaymentMethods();
+        final found = findByDescription('Multiple Payments');
+        return found?.id;
       }
     } catch (e) {
       _error = e.toString();

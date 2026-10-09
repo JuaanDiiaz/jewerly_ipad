@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -64,8 +65,15 @@ class ProductProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Upload image if it's a local file
-      if (productData['picture'] != null &&
+      // Upload image: bytes if the screen passed them (web must go through
+      // fromBytes), otherwise a local file path.
+      final pictureBytes = productData['pictureBytes'] as Uint8List?;
+      if (pictureBytes != null) {
+        final uploadedUrl = await uploadImageBytes(pictureBytes);
+        if (uploadedUrl != null) {
+          productData['picture'] = uploadedUrl;
+        }
+      } else if (productData['picture'] != null &&
           productData['picture'].toString().isNotEmpty &&
           !productData['picture'].toString().startsWith('http')) {
         final uploadedUrl = await uploadImage(productData['picture']);
@@ -80,15 +88,19 @@ class ProductProvider extends ChangeNotifier {
         'picture': productData['picture'],
       };
       final response = await _apiService.post('/Product', body: backendData);
-      if (response != null) {
+      if (response is Map<String, dynamic>) {
         final newProduct = ProductModel.fromJson(response);
         _products.add(newProduct);
         _lastCreatedProductId = newProduct.id;
-        _isLoading = false;
-        _isSaving = false;
-        notifyListeners();
-        return true;
+      } else {
+        // 2xx with empty body: it succeeded but returned no record — refetch
+        await fetchProducts();
+        _lastCreatedProductId = null;
       }
+      _isLoading = false;
+      _isSaving = false;
+      notifyListeners();
+      return true;
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -106,8 +118,14 @@ class ProductProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Upload image if it's a local file
-      if (productData['picture'] != null &&
+      // Upload image: bytes if the screen passed them, else a local path.
+      final pictureBytes = productData['pictureBytes'] as Uint8List?;
+      if (pictureBytes != null) {
+        final uploadedUrl = await uploadImageBytes(pictureBytes);
+        if (uploadedUrl != null) {
+          productData['picture'] = uploadedUrl;
+        }
+      } else if (productData['picture'] != null &&
           productData['picture'].toString().isNotEmpty &&
           !productData['picture'].toString().startsWith('http')) {
         final uploadedUrl = await uploadImage(productData['picture']);
@@ -116,17 +134,23 @@ class ProductProvider extends ChangeNotifier {
         }
       }
 
-      final response = await _apiService.put('/Product/$id', body: productData);
-      if (response != null) {
+      // pictureBytes is an app-only key — never serialize it to the backend
+      // (it would become a giant numeric array in the PUT body).
+      final payload = {...productData}..remove('pictureBytes');
+      final response = await _apiService.put('/Product/$id', body: payload);
+      if (response is Map<String, dynamic>) {
         final index = _products.indexWhere((p) => p.id == id);
         if (index != -1) {
           _products[index] = ProductModel.fromJson(response);
         }
-        _isLoading = false;
-        _isSaving = false;
-        notifyListeners();
-        return true;
+      } else {
+        // 2xx with empty body: it succeeded but returned no record — refetch
+        await fetchProducts();
       }
+      _isLoading = false;
+      _isSaving = false;
+      notifyListeners();
+      return true;
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -156,7 +180,42 @@ class ProductProvider extends ChangeNotifier {
     }
   }
 
-  /// Uploads an image to Cloudinary and returns the secure URL
+  /// Uploads an image (as bytes — the only form that works on Flutter web,
+  /// where MultipartFile.fromPath/dart:io file access is unavailable) to
+  /// Cloudinary and returns the secure URL.
+  Future<String?> uploadImageBytes(
+    Uint8List bytes, {
+    String filename = 'product.jpg',
+  }) async {
+    _isSaving = true;
+    notifyListeners();
+
+    try {
+      final url = Uri.parse(_cloudinaryUrl);
+      final imageUploadRequest = http.MultipartRequest('POST', url)
+        ..files.add(http.MultipartFile.fromBytes('file', bytes, filename: filename));
+
+      final streamResponse = await imageUploadRequest.send();
+      final resp = await http.Response.fromStream(streamResponse);
+
+      if (resp.statusCode != 200 && resp.statusCode != 201) {
+        debugPrint('Image upload failed: ${resp.body}');
+        return null;
+      }
+
+      final decodedData = json.decode(resp.body);
+      return decodedData['secure_url'];
+    } catch (e) {
+      debugPrint('Error uploading image: $e');
+      return null;
+    } finally {
+      _isSaving = false;
+      notifyListeners();
+    }
+  }
+
+  /// Uploads an image file by path (desktop/mobile only — prefer
+  /// [uploadImageBytes]).
   Future<String?> uploadImage(String imagePath) async {
     _isSaving = true;
     notifyListeners();

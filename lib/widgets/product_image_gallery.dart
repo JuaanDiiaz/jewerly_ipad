@@ -1,17 +1,33 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:p_a_jewerly/providers/product_image_provider.dart';
 import 'package:p_a_jewerly/theme/app_theme.dart';
+import 'package:p_a_jewerly/widgets/picked_image.dart';
+
+/// A gallery display item: a server URL, in-memory bytes (primary picked on
+/// the product dialog), or a picked file that gets decoded on demand.
+/// Bytes/memory rendering matters because `Image.file` needs dart:io, which
+/// doesn't exist on Flutter web.
+class _GalleryItem {
+  final String? url;
+  final Uint8List? bytes;
+  final XFile? file;
+
+  const _GalleryItem({this.url, this.bytes, this.file});
+
+  bool get isEmpty => (url == null || url!.isEmpty) && bytes == null && file == null;
+}
 
 class ProductImageGallery extends StatefulWidget {
   final int? productId; // Make nullable for new products
-  final List<String> existingImageUrls; // For new products, pass local paths
+  final List<XFile> existingImageUrls; // For new products, picked files
   final bool isEditable;
   final String? primaryImageUrl;
-  final Function(List<String>)? onImagesChanged; // Callback when images change
+  final Uint8List? primaryImageBytes; // picked primary (web-safe display)
+  final Function(List<XFile>)? onImagesChanged; // Callback when images change
   final String? heroTag; // For Hero animation
 
   const ProductImageGallery({
@@ -20,6 +36,7 @@ class ProductImageGallery extends StatefulWidget {
     this.existingImageUrls = const [],
     this.isEditable = false,
     this.primaryImageUrl,
+    this.primaryImageBytes,
     this.onImagesChanged,
     this.heroTag,
   });
@@ -33,7 +50,51 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
   final _imagePicker = ImagePicker();
   final _pageController = PageController();
   bool _isAddingImage = false;
-  List<String> _localImages = []; // For new products, store local paths
+  List<XFile> _localImages = []; // New products: picked files (paths are browser blob URLs)
+
+  /// Normalizes the display list the same way as `build` so deletion and
+  /// pick handlers map indexes consistently with what is rendered.
+  List<_GalleryItem> _buildDisplayItems() {
+    final items = <_GalleryItem>[];
+    final primary = _GalleryItem(
+      url: widget.primaryImageUrl,
+      bytes: widget.primaryImageBytes,
+    );
+
+    if (widget.productId != null) {
+      // Existing product - get from provider
+      final imageProvider = context.watch<ProductImageProvider>();
+      final productImages = imageProvider.getImagesForProduct(widget.productId!);
+      final urls = productImages
+          .map((img) => img.imageUrl)
+          .where((url) => url.isNotEmpty)
+          .toSet();
+
+      if (!primary.isEmpty && !urls.contains(primary.url)) {
+        items.add(primary);
+      }
+      for (final url in urls) {
+        items.add(_GalleryItem(url: url));
+      }
+    } else {
+      // New product - primary + picked files
+      if (_hasPrimaryItem()) {
+        items.add(primary);
+      }
+      for (final picked in _localImages) {
+        items.add(_GalleryItem(file: picked));
+      }
+    }
+    return items;
+  }
+
+  /// For new products: whether the primary image (picked on the product
+  /// dialog) is part of the rendered display list at index 0.
+  bool _hasPrimaryItem() {
+    final primary = _GalleryItem(url: widget.primaryImageUrl, bytes: widget.primaryImageBytes);
+    return !primary.isEmpty &&
+        !_localImages.any((i) => i.path == widget.primaryImageUrl);
+  }
 
   @override
   void initState() {
@@ -60,37 +121,16 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
 
   @override
   Widget build(BuildContext context) {
-    // For existing products, get images from provider
-    List<String> allImages = [];
-
-    if (widget.productId != null) {
-      // Existing product - get from provider
-      final imageProvider = context.watch<ProductImageProvider>();
-      final productImages = imageProvider.getImagesForProduct(widget.productId!);
-      allImages = productImages.map((img) => img.imageUrl).where((url) => url.isNotEmpty).toList();
-
-      // Add primary image if exists and not already in list
-      if (widget.primaryImageUrl != null &&
-          widget.primaryImageUrl!.isNotEmpty &&
-          !allImages.contains(widget.primaryImageUrl)) {
-        allImages.insert(0, widget.primaryImageUrl!);
-      }
-    } else {
-      // New product - use local images
-      allImages = _localImages;
-      if (widget.primaryImageUrl != null &&
-          widget.primaryImageUrl!.isNotEmpty &&
-          !_localImages.contains(widget.primaryImageUrl)) {
-        allImages.insert(0, widget.primaryImageUrl!);
-      }
-    }
+    final displayItems = _buildDisplayItems();
 
     // Ensure selectedIndex is within bounds
-    if (_selectedIndex >= allImages.length) {
-      _selectedIndex = (allImages.length - 1).clamp(0, double.infinity.toInt());
+    if (_selectedIndex >= displayItems.length) {
+      // `double.infinity.toInt()` throws `UnsupportedError` — index into an
+      // empty list must simply reset to 0.
+      _selectedIndex = displayItems.isEmpty ? 0 : displayItems.length - 1;
     }
 
-    final hasImages = allImages.isNotEmpty;
+    final hasImages = displayItems.isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -103,7 +143,7 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
             child: hasImages
-                ? _buildImageCarousel(allImages)
+                ? _buildImageCarousel(displayItems)
                 : _buildEmptyPlaceholder(),
           ),
         ),
@@ -119,8 +159,8 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
                 Expanded(
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
-                    itemCount: allImages.length,
-                    itemBuilder: (context, index) => _buildThumbnail(allImages, index),
+                    itemCount: displayItems.length,
+                    itemBuilder: (context, index) => _buildThumbnail(displayItems, index),
                   ),
                 ),
                 if (widget.isEditable) _buildAddImageButton(),
@@ -134,7 +174,7 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
     );
   }
 
-  Widget _buildImageCarousel(List<String> images) {
+  Widget _buildImageCarousel(List<_GalleryItem> images) {
     if (images.isEmpty) return _buildEmptyPlaceholder();
 
     return Stack(
@@ -143,36 +183,18 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
           itemCount: images.length,
           onPageChanged: (index) => setState(() => _selectedIndex = index),
           itemBuilder: (context, index) {
-            final imageUrl = images[index];
-            final isNetworkImage = imageUrl.startsWith('http') || imageUrl.startsWith('https');
+            final item = images[index];
             final isFirstImage = index == 0 && widget.heroTag != null;
 
-            Widget imageWidget = isNetworkImage
-                ? Image.network(
-                    imageUrl,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Container(
-                        color: AppTheme.lightGold.withOpacity(0.3),
-                        child: const Center(
-                          child: CircularProgressIndicator(color: AppTheme.primaryGold),
-                        ),
-                      );
-                    },
-                    errorBuilder: (_, __, ___) => Container(
-                      color: AppTheme.lightGold.withOpacity(0.3),
-                      child: const Icon(Icons.broken_image, size: 64, color: AppTheme.subtleText),
-                    ),
-                  )
-                : Image.file(
-                    File(imageUrl),
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      color: AppTheme.lightGold.withOpacity(0.3),
-                      child: const Icon(Icons.broken_image, size: 64, color: AppTheme.subtleText),
-                    ),
-                  );
+            // Picked bytes / picked file render on web too; Image.file
+            // (dart:io) does not.
+            Widget imageWidget = PickedImage(
+              url: item.url,
+              bytes: item.bytes,
+              file: item.file,
+              fit: BoxFit.cover,
+              showLoader: true,
+            );
 
             return Stack(
               fit: StackFit.expand,
@@ -275,7 +297,7 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
           Text(
             'No images yet',
             style: TextStyle(
-              color: AppTheme.subtleText,
+              color: AppTheme.mutedText,
               fontSize: 16,
             ),
           ),
@@ -284,10 +306,9 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
     );
   }
 
-  Widget _buildThumbnail(List<String> images, int index) {
-    final imageUrl = images[index];
+  Widget _buildThumbnail(List<_GalleryItem> images, int index) {
+    final item = images[index];
     final isSelected = index == _selectedIndex;
-    final isNetworkImage = imageUrl.startsWith('http') || imageUrl.startsWith('https');
 
     return GestureDetector(
       onTap: () => setState(() => _selectedIndex = index),
@@ -316,23 +337,7 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              isNetworkImage
-                  ? Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        color: AppTheme.lightGold,
-                        child: const Icon(Icons.broken_image, color: AppTheme.subtleText),
-                      ),
-                    )
-                  : Image.file(
-                      File(imageUrl),
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        color: AppTheme.lightGold,
-                        child: const Icon(Icons.broken_image, color: AppTheme.subtleText),
-                      ),
-                    ),
+              PickedImage(url: item.url, bytes: item.bytes, file: item.file),
               if (isSelected)
                 Container(
                   decoration: BoxDecoration(
@@ -407,7 +412,7 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
               Text(
                 'Uploading...',
                 style: TextStyle(
-                  color: AppTheme.subtleText,
+                  color: AppTheme.mutedText,
                   fontSize: 14,
                 ),
               ),
@@ -471,11 +476,12 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
       setState(() => _isAddingImage = true);
 
       if (widget.productId != null) {
-        // Existing product - upload immediately
+        // Existing product - upload immediately (the XFile is read as bytes
+        // inside the provider, which works on web too)
         final provider = context.read<ProductImageProvider>();
         final success = await provider.addProductImage(
           widget.productId!,
-          pickedFile.path,
+          pickedFile,
           'Product image',
         );
 
@@ -502,10 +508,11 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
           }
         }
       } else {
-        // New product - just add to local list
+        // New product - just add to local list (rendered from bytes via
+        // PickedImage; the parent uploads after createProduct)
         setState(() {
           _isAddingImage = false;
-          _localImages.add(pickedFile.path);
+          _localImages.add(pickedFile);
           _selectedIndex = _localImages.length - 1;
         });
 
@@ -554,11 +561,14 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
         }
       }
     } else {
-      // New product - just remove from local list
+      // New product - just remove from local list. The primary image (when
+      // displayed) occupies index 0 of the carousel, so shift accordingly.
+      final localIndex = index - (_hasPrimaryItem() ? 1 : 0);
+      if (localIndex < 0 || localIndex >= _localImages.length) return;
       setState(() {
-        _localImages.removeAt(index);
-        if (_selectedIndex >= _localImages.length) {
-          _selectedIndex = (_localImages.length - 1).clamp(0, double.infinity).toInt();
+        _localImages.removeAt(localIndex);
+        if (_selectedIndex >= _localImages.length + (_hasPrimaryItem() ? 1 : 0)) {
+          _selectedIndex = (_localImages.length - 1 + (_hasPrimaryItem() ? 1 : 0)).clamp(0, double.infinity).toInt();
         }
       });
 
@@ -566,7 +576,4 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
       widget.onImagesChanged?.call(_localImages);
     }
   }
-
-  /// Get local images for new products (called by parent before saving)
-  List<String> getLocalImages() => _localImages;
 }

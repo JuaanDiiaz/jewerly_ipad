@@ -8,6 +8,8 @@ import 'package:p_a_jewerly/providers/payment_method_provider.dart';
 import 'package:p_a_jewerly/models/sales_order_header_model.dart';
 import 'package:p_a_jewerly/models/customer_payment_model.dart';
 import 'package:p_a_jewerly/theme/app_theme.dart';
+import 'package:p_a_jewerly/utils/format.dart';
+import 'package:p_a_jewerly/widgets/loading_overlay.dart';
 
 class PaymentsScreen extends StatefulWidget {
   const PaymentsScreen({super.key});
@@ -124,7 +126,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                   children: [
                     const Text('Remaining:', style: TextStyle(fontWeight: FontWeight.w500)),
                     Text(
-                      '\$${remaining.toStringAsFixed(2)}',
+                      '${formatCurrency(remaining)}',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
@@ -245,7 +247,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.surfaceColor,
               boxShadow: [
                 BoxShadow(
                   color: AppTheme.deepPurple.withOpacity(0.1),
@@ -258,11 +260,11 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Search by customer or sale ID...',
-                hintStyle: TextStyle(color: AppTheme.subtleText),
+                hintStyle: TextStyle(color: AppTheme.mutedText),
                 prefixIcon: Icon(Icons.search, color: AppTheme.primaryGold),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
-                        icon: Icon(Icons.clear, color: AppTheme.subtleText),
+                        icon: Icon(Icons.clear, color: AppTheme.mutedText),
                         onPressed: () => _searchController.clear(),
                       )
                     : null,
@@ -283,6 +285,15 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                   return const Center(child: CircularProgressIndicator(color: AppTheme.primaryGold));
                 }
 
+                // A failed fetch with stale rows keeps the list visible and
+                // surfaces the failure as a banner instead of swallowing it.
+                final Widget? errorBanner = salesProvider.error != null
+                    ? ErrorBanner(
+                        message: salesProvider.error!,
+                        onRetry: () => salesProvider.fetchSales(),
+                      )
+                    : null;
+
                 final filteredSales = _filterSales(salesProvider.sales);
 
                 if (filteredSales.isEmpty) {
@@ -294,14 +305,14 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                         const SizedBox(height: 16),
                         Text(
                           salesProvider.sales.isEmpty ? 'No sales recorded' : 'No sales found',
-                          style: TextStyle(fontSize: 18, color: AppTheme.subtleText),
+                          style: TextStyle(fontSize: 18, color: AppTheme.mutedText),
                         ),
                       ],
                     ),
                   );
                 }
 
-                return ListView.builder(
+                final Widget list = ListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: filteredSales.length,
                   itemBuilder: (context, index) {
@@ -365,7 +376,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                                             const SizedBox(height: 4),
                                             Text(
                                               _getCustomerName(sale.customerId),
-                                              style: TextStyle(color: AppTheme.subtleText, fontSize: 14),
+                                              style: TextStyle(color: AppTheme.mutedText, fontSize: 14),
                                             ),
                                           ],
                                         ),
@@ -394,7 +405,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                                         child: _buildInfoColumn('Paid', currencyFormat.format(paid), color: AppTheme.success),
                                       ),
                                       Expanded(
-                                        child: _buildInfoColumn('Remaining', currencyFormat.format(remaining), color: remaining > 0 ? AppTheme.error : AppTheme.subtleText),
+                                        child: _buildInfoColumn('Remaining', currencyFormat.format(remaining), color: remaining > 0 ? AppTheme.error : AppTheme.mutedText),
                                       ),
                                       Icon(
                                         isExpanded ? Icons.expand_less : Icons.expand_more,
@@ -405,20 +416,20 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                                   const SizedBox(height: 8),
                                   Row(
                                     children: [
-                                      Icon(Icons.calendar_today, size: 14, color: AppTheme.subtleText),
+                                      Icon(Icons.calendar_today, size: 14, color: AppTheme.mutedText),
                                       const SizedBox(width: 4),
                                       Text(
                                         sale.saleDate != null
                                             ? DateFormat('MMM dd, yyyy').format(sale.saleDate!)
                                             : 'N/A',
-                                        style: TextStyle(color: AppTheme.subtleText, fontSize: 12),
+                                        style: TextStyle(color: AppTheme.mutedText, fontSize: 12),
                                       ),
                                       const SizedBox(width: 16),
-                                      Icon(Icons.payment, size: 14, color: AppTheme.subtleText),
+                                      Icon(Icons.payment, size: 14, color: AppTheme.mutedText),
                                       const SizedBox(width: 4),
                                       Text(
                                         _getPaymentMethodName(sale.paymentMethodId),
-                                        style: TextStyle(color: AppTheme.subtleText, fontSize: 12),
+                                        style: TextStyle(color: AppTheme.mutedText, fontSize: 12),
                                       ),
                                     ],
                                   ),
@@ -457,7 +468,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                                         padding: const EdgeInsets.all(16),
                                         child: Text(
                                           'No payments recorded',
-                                          style: TextStyle(color: AppTheme.subtleText),
+                                          style: TextStyle(color: AppTheme.mutedText),
                                         ),
                                       ),
                                     )
@@ -472,6 +483,18 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                     );
                   },
                 );
+
+                return Column(
+                  children: [
+                    if (errorBanner != null) errorBanner,
+                    Expanded(
+                      child: RefreshIndicator(
+                        onRefresh: () => salesProvider.fetchSales(),
+                        child: list,
+                      ),
+                    ),
+                  ],
+                );
               },
             ),
           ),
@@ -484,7 +507,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(color: AppTheme.subtleText, fontSize: 11)),
+        Text(label, style: TextStyle(color: AppTheme.mutedText, fontSize: 11)),
         Text(value, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: color)),
       ],
     );
@@ -501,7 +524,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppTheme.cream,
+        color: AppTheme.background,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppTheme.lightGold),
       ),
@@ -534,12 +557,12 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '\$${amount.toStringAsFixed(2)}',
+                  '${formatCurrency(amount)}',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 Text(
                   paymentMethodName,
-                  style: TextStyle(color: AppTheme.subtleText, fontSize: 12),
+                  style: TextStyle(color: AppTheme.mutedText, fontSize: 12),
                 ),
               ],
             ),
@@ -549,12 +572,12 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
             children: [
               Text(
                 date,
-                style: TextStyle(color: AppTheme.subtleText, fontSize: 11),
+                style: TextStyle(color: AppTheme.mutedText, fontSize: 11),
               ),
               if (payment.notes != null && payment.notes!.isNotEmpty)
                 Text(
                   payment.notes!,
-                  style: TextStyle(color: AppTheme.subtleText, fontSize: 10),
+                  style: TextStyle(color: AppTheme.mutedText, fontSize: 10),
                   overflow: TextOverflow.ellipsis,
                 ),
             ],

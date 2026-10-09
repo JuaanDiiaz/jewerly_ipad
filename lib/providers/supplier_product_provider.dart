@@ -37,12 +37,15 @@ class SupplierProductProvider extends ChangeNotifier {
 
     try {
       final response = await _apiService.post('/SupplierProduct', body: product.toJson());
-      if (response != null) {
+      if (response is Map<String, dynamic>) {
         _supplierProducts.add(SupplierProductModel.fromJson(response));
-        _isLoading = false;
-        notifyListeners();
-        return true;
+      } else {
+        // 2xx with empty body: it succeeded but returned no record — refetch
+        await fetchSupplierProducts();
       }
+      _isLoading = false;
+      notifyListeners();
+      return true;
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -59,15 +62,18 @@ class SupplierProductProvider extends ChangeNotifier {
 
     try {
       final response = await _apiService.put('/SupplierProduct/${product.id}', body: product.toJson());
-      if (response != null) {
+      if (response is Map<String, dynamic>) {
         final index = _supplierProducts.indexWhere((p) => p.id == product.id);
         if (index != -1) {
           _supplierProducts[index] = SupplierProductModel.fromJson(response);
         }
-        _isLoading = false;
-        notifyListeners();
-        return true;
+      } else {
+        // 2xx with empty body: it succeeded but returned no record — refetch
+        await fetchSupplierProducts();
       }
+      _isLoading = false;
+      notifyListeners();
+      return true;
     } catch (e) {
       _error = e.toString();
     } finally {

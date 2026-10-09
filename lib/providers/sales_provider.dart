@@ -52,12 +52,14 @@ class SalesProvider extends ChangeNotifier {
   void addToCart(CartItem item) {
     final existingIndex = _cart.indexWhere((i) => i.productId == item.productId);
     if (existingIndex != -1) {
+      final existing = _cart[existingIndex];
       _cart[existingIndex] = CartItem(
         productId: item.productId,
         productName: item.productName,
-        quantity: _cart[existingIndex].quantity + item.quantity,
-        unitPrice: item.unitPrice,
+        quantity: existing.quantity + item.quantity,
+        unitPrice: item.unitPrice != 0 ? item.unitPrice : existing.unitPrice,
         imageUrl: item.imageUrl,
+        maxQuantity: item.maxQuantity > 0 ? item.maxQuantity : existing.maxQuantity,
       );
     } else {
       _cart.add(item);
@@ -144,6 +146,18 @@ class SalesProvider extends ChangeNotifier {
       return false;
     }
 
+    if (_isLoading) {
+      // A checkout network call is already in flight — the button's own
+      // guard should make this unreachable, but a double POST here would
+      // duplicate the sale and double-decrement stock, so refuse it.
+      return false;
+    }
+
+    if (_selectedWarehouseId == null) {
+      _error = 'Please select a warehouse before checkout';
+      return false;
+    }
+
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -153,7 +167,7 @@ class SalesProvider extends ChangeNotifier {
         'customerId': _selectedCustomerId,
         'paymentMethodId': _paymentMethodId,
         'salespersonName': _salespersonName ?? '',
-        'warehouseId': _selectedWarehouseId ?? 1,
+        'warehouseId': _selectedWarehouseId,
         'saleDate': DateTime.now().toIso8601String().split('T')[0],
         'items': _cart.map((item) => {
           'productId': item.productId,

@@ -8,6 +8,7 @@ import 'package:p_a_jewerly/providers/payment_method_provider.dart';
 import 'package:p_a_jewerly/models/sales_order_header_model.dart';
 import 'package:p_a_jewerly/models/customer_payment_model.dart';
 import 'package:p_a_jewerly/theme/app_theme.dart';
+import 'package:p_a_jewerly/utils/format.dart';
 import 'package:p_a_jewerly/widgets/loading_overlay.dart';
 
 class SalesListScreen extends StatefulWidget {
@@ -21,6 +22,7 @@ class _SalesListScreenState extends State<SalesListScreen> {
   int? _expandedSaleId;
   final _amountController = TextEditingController();
   final _notesController = TextEditingController();
+  final _paymentFormKey = GlobalKey<FormState>();
   int? _selectedPaymentMethodId;
   String _searchQuery = '';
   final _searchController = TextEditingController();
@@ -109,91 +111,106 @@ class _SalesListScreenState extends State<SalesListScreen> {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text('Add Payment - Sale #${sale.id}'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppTheme.lightGold.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Remaining:', style: TextStyle(fontWeight: FontWeight.w500)),
-                    Text(
-                      '\$${remaining.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                        color: AppTheme.primaryGold,
-                      ),
+        // StatefulBuilder so the method dropdown's selection visibly updates
+        // inside the dialog (the owner State's setState doesn't rebuild it).
+        content: StatefulBuilder(
+          builder: (dialogContext, setDialogState) => SingleChildScrollView(
+            child: Form(
+              key: _paymentFormKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.lightGold.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Consumer<PaymentMethodProvider>(
-                builder: (context, pmProvider, _) {
-                  return DropdownButtonFormField<int?>(
-                    value: _selectedPaymentMethodId,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Remaining:', style: TextStyle(fontWeight: FontWeight.w500)),
+                        Text(
+                          '${formatCurrency(remaining)}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: AppTheme.primaryGold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Consumer<PaymentMethodProvider>(
+                    builder: (context, pmProvider, _) {
+                      return DropdownButtonFormField<int?>(
+                        value: _selectedPaymentMethodId,
+                        decoration: InputDecoration(
+                          labelText: 'Payment Method',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          prefixIcon: Icon(Icons.credit_card, color: AppTheme.primaryGold),
+                        ),
+                        items: [
+                          const DropdownMenuItem(value: null, child: Text('Select method')),
+                          ...pmProvider.paymentMethods.map((m) {
+                            return DropdownMenuItem(value: m.id, child: Text(m.description ?? 'Method ${m.id}'));
+                          }),
+                        ],
+                        onChanged: (value) => setDialogState(() => _selectedPaymentMethodId = value),
+                        validator: (value) =>
+                            value == null ? 'Please select a payment method' : null,
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _amountController,
                     decoration: InputDecoration(
-                      labelText: 'Payment Method',
+                      labelText: 'Amount',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      prefixIcon: Icon(Icons.credit_card, color: AppTheme.primaryGold),
+                      prefixText: '\$ ',
                     ),
-                    items: [
-                      const DropdownMenuItem(value: null, child: Text('Select method')),
-                      ...pmProvider.paymentMethods.map((m) {
-                        return DropdownMenuItem(value: m.id, child: Text(m.description ?? 'Method ${m.id}'));
-                      }),
-                    ],
-                    onChanged: (value) => setState(() => _selectedPaymentMethodId = value),
-                  );
-                },
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    validator: (value) {
+                      final amount = double.tryParse(value ?? '');
+                      if (value == null || value.trim().isEmpty || amount == null || amount <= 0) {
+                        return 'Enter an amount greater than zero';
+                      }
+                      // Block overpayment visibly instead of recording it silently.
+                      if (amount > remaining + 0.009) {
+                        return 'Exceeds the remaining balance (${formatCurrency(remaining)})';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _notesController,
+                    decoration: InputDecoration(
+                      labelText: 'Notes (optional)',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    maxLines: 2,
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _amountController,
-                decoration: InputDecoration(
-                  labelText: 'Amount',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  prefixText: '\$ ',
-                ),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _notesController,
-                decoration: InputDecoration(
-                  labelText: 'Notes (optional)',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                maxLines: 2,
-              ),
-            ],
+            ),
           ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () async {
-              final amount = double.tryParse(_amountController.text);
-              if (amount == null || amount <= 0 || _selectedPaymentMethodId == null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  errorSnackBar('Please enter a valid amount and select a payment method'),
-                );
-                return;
-              }
+              if (!_paymentFormKey.currentState!.validate()) return;
+              final amount = double.parse(_amountController.text.trim());
 
               final paymentProvider = context.read<CustomerPaymentProvider>();
               final paymentData = CustomerPaymentModel(
@@ -207,11 +224,11 @@ class _SalesListScreenState extends State<SalesListScreen> {
               );
 
               final success = await paymentProvider.createPayment(paymentData);
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
 
               if (success) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  successSnackBar('Payment of \$${amount.toStringAsFixed(2)} recorded'),
+                  successSnackBar('Payment of ${formatCurrency(amount)} recorded'),
                 );
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -253,7 +270,7 @@ class _SalesListScreenState extends State<SalesListScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.surfaceColor,
               boxShadow: [
                 BoxShadow(
                   color: AppTheme.deepPurple.withOpacity(0.1),
@@ -266,11 +283,11 @@ class _SalesListScreenState extends State<SalesListScreen> {
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Search by customer or sale ID...',
-                hintStyle: TextStyle(color: AppTheme.subtleText),
+                hintStyle: TextStyle(color: AppTheme.mutedText),
                 prefixIcon: Icon(Icons.search, color: AppTheme.primaryGold),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
-                        icon: Icon(Icons.clear, color: AppTheme.subtleText),
+                        icon: Icon(Icons.clear, color: AppTheme.mutedText),
                         onPressed: () => _searchController.clear(),
                       )
                     : null,
@@ -291,6 +308,15 @@ class _SalesListScreenState extends State<SalesListScreen> {
                   return const Center(child: CircularProgressIndicator(color: AppTheme.primaryGold));
                 }
 
+                // A failed fetch with stale rows keeps the list visible and
+                // surfaces the failure as a banner instead of swallowing it.
+                final Widget? errorBanner = salesProvider.error != null
+                    ? ErrorBanner(
+                        message: salesProvider.error!,
+                        onRetry: () => salesProvider.fetchSales(),
+                      )
+                    : null;
+
                 final filteredSales = _filterSales(salesProvider.sales);
 
                 if (filteredSales.isEmpty) {
@@ -302,14 +328,14 @@ class _SalesListScreenState extends State<SalesListScreen> {
                         const SizedBox(height: 16),
                         Text(
                           salesProvider.sales.isEmpty ? 'No sales recorded' : 'No sales found',
-                          style: TextStyle(fontSize: 18, color: AppTheme.subtleText),
+                          style: TextStyle(fontSize: 18, color: AppTheme.mutedText),
                         ),
                       ],
                     ),
                   );
                 }
 
-                return ListView.builder(
+                Widget list = ListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: filteredSales.length,
                   itemBuilder: (context, index) {
@@ -372,7 +398,7 @@ class _SalesListScreenState extends State<SalesListScreen> {
                                             const SizedBox(height: 4),
                                             Text(
                                               _getCustomerName(sale.customerId),
-                                              style: TextStyle(color: AppTheme.subtleText, fontSize: 14),
+                                              style: TextStyle(color: AppTheme.mutedText, fontSize: 14),
                                             ),
                                           ],
                                         ),
@@ -401,7 +427,7 @@ class _SalesListScreenState extends State<SalesListScreen> {
                                         child: _buildInfoColumn('Paid', currencyFormat.format(paid), color: AppTheme.success),
                                       ),
                                       Expanded(
-                                        child: _buildInfoColumn('Remaining', currencyFormat.format(remaining), color: remaining > 0 ? AppTheme.error : AppTheme.subtleText),
+                                        child: _buildInfoColumn('Remaining', currencyFormat.format(remaining), color: remaining > 0 ? AppTheme.error : AppTheme.mutedText),
                                       ),
                                       Icon(
                                         isExpanded ? Icons.expand_less : Icons.expand_more,
@@ -412,20 +438,20 @@ class _SalesListScreenState extends State<SalesListScreen> {
                                   const SizedBox(height: 8),
                                   Row(
                                     children: [
-                                      Icon(Icons.calendar_today, size: 14, color: AppTheme.subtleText),
+                                      Icon(Icons.calendar_today, size: 14, color: AppTheme.mutedText),
                                       const SizedBox(width: 4),
                                       Text(
                                         sale.saleDate != null
                                             ? DateFormat('MMM dd, yyyy').format(sale.saleDate!)
                                             : 'N/A',
-                                        style: TextStyle(color: AppTheme.subtleText, fontSize: 12),
+                                        style: TextStyle(color: AppTheme.mutedText, fontSize: 12),
                                       ),
                                       const SizedBox(width: 16),
-                                      Icon(Icons.payment, size: 14, color: AppTheme.subtleText),
+                                      Icon(Icons.payment, size: 14, color: AppTheme.mutedText),
                                       const SizedBox(width: 4),
                                       Text(
                                         _getPaymentMethodName(sale.paymentMethodId),
-                                        style: TextStyle(color: AppTheme.subtleText, fontSize: 12),
+                                        style: TextStyle(color: AppTheme.mutedText, fontSize: 12),
                                       ),
                                     ],
                                   ),
@@ -466,7 +492,7 @@ class _SalesListScreenState extends State<SalesListScreen> {
                                         padding: const EdgeInsets.all(16),
                                         child: Text(
                                           'No payments recorded',
-                                          style: TextStyle(color: AppTheme.subtleText),
+                                          style: TextStyle(color: AppTheme.mutedText),
                                         ),
                                       ),
                                     )
@@ -481,6 +507,18 @@ class _SalesListScreenState extends State<SalesListScreen> {
                     );
                   },
                 );
+
+                return Column(
+                  children: [
+                    if (errorBanner != null) errorBanner,
+                    Expanded(
+                      child: RefreshIndicator(
+                        onRefresh: () => salesProvider.fetchSales(),
+                        child: list,
+                      ),
+                    ),
+                  ],
+                );
               },
             ),
           ),
@@ -493,7 +531,7 @@ class _SalesListScreenState extends State<SalesListScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(color: AppTheme.subtleText, fontSize: 11)),
+        Text(label, style: TextStyle(color: AppTheme.mutedText, fontSize: 11)),
         Text(value, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: color)),
       ],
     );
@@ -510,7 +548,7 @@ class _SalesListScreenState extends State<SalesListScreen> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppTheme.cream,
+        color: AppTheme.background,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppTheme.lightGold),
       ),
@@ -542,12 +580,12 @@ class _SalesListScreenState extends State<SalesListScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '\$${amount.toStringAsFixed(2)}',
+                  '${formatCurrency(amount)}',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 Text(
                   paymentMethodName,
-                  style: TextStyle(color: AppTheme.subtleText, fontSize: 12),
+                  style: TextStyle(color: AppTheme.mutedText, fontSize: 12),
                 ),
               ],
             ),
@@ -557,12 +595,12 @@ class _SalesListScreenState extends State<SalesListScreen> {
             children: [
               Text(
                 date,
-                style: TextStyle(color: AppTheme.subtleText, fontSize: 11),
+                style: TextStyle(color: AppTheme.mutedText, fontSize: 11),
               ),
               if (payment.notes != null && payment.notes!.isNotEmpty)
                 Text(
                   payment.notes!,
-                  style: TextStyle(color: AppTheme.subtleText, fontSize: 10),
+                  style: TextStyle(color: AppTheme.mutedText, fontSize: 10),
                   overflow: TextOverflow.ellipsis,
                 ),
             ],

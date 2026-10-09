@@ -47,12 +47,15 @@ class CustomerProvider extends ChangeNotifier {
         'country': customerData['country'] ?? '',
       };
       final response = await _apiService.post('/Customer', body: backendData);
-      if (response != null) {
+      if (response is Map<String, dynamic>) {
         _customers.add(CustomerModel.fromJson(response));
-        _isLoading = false;
-        notifyListeners();
-        return true;
+      } else {
+        // 2xx with empty body: it succeeded but returned no record — refetch
+        await fetchCustomers();
       }
+      _isLoading = false;
+      notifyListeners();
+      return true;
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -69,15 +72,18 @@ class CustomerProvider extends ChangeNotifier {
 
     try {
       final response = await _apiService.put('/Customer/$id', body: customerData);
-      if (response != null) {
+      if (response is Map<String, dynamic>) {
         final index = _customers.indexWhere((c) => c.id == id);
         if (index != -1) {
           _customers[index] = CustomerModel.fromJson(response);
         }
-        _isLoading = false;
-        notifyListeners();
-        return true;
+      } else {
+        // 2xx with empty body: it succeeded but returned no record — refetch
+        await fetchCustomers();
       }
+      _isLoading = false;
+      notifyListeners();
+      return true;
     } catch (e) {
       _error = e.toString();
     } finally {

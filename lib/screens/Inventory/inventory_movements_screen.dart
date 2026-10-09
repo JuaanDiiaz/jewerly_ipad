@@ -17,9 +17,6 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
   int? _selectedWarehouseId;
   DateTime? _fromDate;
   DateTime? _toDate;
-  final _reasonController = TextEditingController();
-  final _quantityController = TextEditingController();
-  int? _selectedProductId;
 
   @override
   void initState() {
@@ -29,13 +26,6 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
       context.read<ProductProvider>().fetchProducts();
       context.read<WarehouseProvider>().fetchWarehouses();
     });
-  }
-
-  @override
-  void dispose() {
-    _reasonController.dispose();
-    _quantityController.dispose();
-    super.dispose();
   }
 
   Future<void> _selectDateRange() async {
@@ -60,125 +50,6 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
     );
   }
 
-  void _openManualMovementDialog() {
-    showDialog(
-      context: context,
-      builder: (_) => _buildManualMovementDialog(),
-    );
-  }
-
-  Widget _buildManualMovementDialog() {
-    final products = context.watch<ProductProvider>().products;
-    final warehouses = context.watch<WarehouseProvider>().warehouses;
-
-    return AlertDialog(
-      title: const Text('Manual Inventory Adjustment'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DropdownButtonFormField<int>(
-              value: _selectedProductId,
-              decoration: const InputDecoration(
-                labelText: 'Product',
-                border: OutlineInputBorder(),
-              ),
-              items: products.map((p) {
-                return DropdownMenuItem(
-                  value: p.id,
-                  child: Text(p.description ?? 'Product ${p.id}'),
-                );
-              }).toList(),
-              onChanged: (value) => setState(() => _selectedProductId = value),
-              validator: (value) => value == null ? 'Required' : null,
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<int>(
-              decoration: const InputDecoration(
-                labelText: 'Warehouse',
-                border: OutlineInputBorder(),
-              ),
-              value: warehouses.isNotEmpty ? warehouses.first.id : null,
-              items: warehouses.map((w) {
-                return DropdownMenuItem(
-                  value: w.id,
-                  child: Text(w.name ?? 'Warehouse ${w.id}'),
-                );
-              }).toList(),
-              onChanged: (value) {},
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: 'IN',
-                    decoration: const InputDecoration(
-                      labelText: 'Movement Type',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: 'IN', child: Text('IN - Add Stock')),
-                      DropdownMenuItem(value: 'OUT', child: Text('OUT - Remove Stock')),
-                    ],
-                    onChanged: (value) {},
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _quantityController,
-              decoration: const InputDecoration(
-                labelText: 'Quantity',
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.number,
-              validator: (value) {
-                if (value == null || value.isEmpty) return 'Required';
-                if (int.tryParse(value) == null || int.parse(value) <= 0) return 'Must be positive';
-                return null;
-              },
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _reasonController,
-              decoration: const InputDecoration(
-                labelText: 'Reason',
-                border: OutlineInputBorder(),
-                hintText: 'e.g., Damaged items, Found during count, etc.',
-              ),
-              maxLines: 2,
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) return 'Reason required';
-                return null;
-              },
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: _saveManualMovement,
-          child: const Text('Record Movement'),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _saveManualMovement() async {
-    // This would need a new endpoint or method in the provider
-    // For now, just show a message
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Manual movement recording - requires backend endpoint')),
-    );
-    Navigator.pop(context);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -190,11 +61,6 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
             icon: const Icon(Icons.filter_list),
             onPressed: _showFilterDialog,
             tooltip: 'Filter',
-          ),
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline),
-            onPressed: _openManualMovementDialog,
-            tooltip: 'Manual Adjustment',
           ),
         ],
       ),
@@ -221,7 +87,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
                   Text('Movements are created when:', style: TextStyle(fontSize: 14, color: Colors.grey)),
                   Text('• Sales are completed (OUT)', style: TextStyle(fontSize: 14, color: Colors.grey)),
                   Text('• Purchases are received (IN)', style: TextStyle(fontSize: 14, color: Colors.grey)),
-                  Text('• Manual adjustments are made', style: TextStyle(fontSize: 14, color: Colors.grey)),
+                  Text('• Quantity adjustments in Inventory', style: TextStyle(fontSize: 14, color: Colors.grey)),
                 ],
               ),
             );
@@ -278,7 +144,9 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
                 ),
               ),
               Expanded(
-                child: ListView.builder(
+                child: RefreshIndicator(
+                  onRefresh: () => provider.fetchMovements(),
+                  child: ListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: movements.length,
                   itemBuilder: (context, index) {
@@ -343,7 +211,8 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
                         ),
                       ),
                     );
-                  },
+                    },
+                  ),
                 ),
               ),
             ],

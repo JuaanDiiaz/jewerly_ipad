@@ -37,12 +37,15 @@ class PriceListDetailProvider extends ChangeNotifier {
 
     try {
       final response = await _apiService.post('/PriceListDetail', body: detail.toJson());
-      if (response != null) {
+      if (response is Map<String, dynamic>) {
         _priceListDetails.add(PriceListDetailModel.fromJson(response));
-        _isLoading = false;
-        notifyListeners();
-        return true;
+      } else {
+        // 2xx with empty body: it succeeded but returned no record — refetch
+        await fetchPriceListDetails();
       }
+      _isLoading = false;
+      notifyListeners();
+      return true;
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -59,15 +62,18 @@ class PriceListDetailProvider extends ChangeNotifier {
 
     try {
       final response = await _apiService.put('/PriceListDetail/${detail.id}', body: detail.toJson());
-      if (response != null) {
+      if (response is Map<String, dynamic>) {
         final index = _priceListDetails.indexWhere((d) => d.id == detail.id);
         if (index != -1) {
           _priceListDetails[index] = PriceListDetailModel.fromJson(response);
         }
-        _isLoading = false;
-        notifyListeners();
-        return true;
+      } else {
+        // 2xx with empty body: it succeeded but returned no record — refetch
+        await fetchPriceListDetails();
       }
+      _isLoading = false;
+      notifyListeners();
+      return true;
     } catch (e) {
       _error = e.toString();
     } finally {

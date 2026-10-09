@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:p_a_jewerly/theme/app_theme.dart';
 
 class LoadingOverlay extends StatelessWidget {
   final bool isLoading;
@@ -36,8 +37,8 @@ class LoadingOverlay extends StatelessWidget {
                         const SizedBox(height: 16),
                         Text(
                           message!,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: AppTheme.textColor,
                             fontSize: 16,
                           ),
                           textAlign: TextAlign.center,
@@ -102,6 +103,51 @@ class AppErrorWidget extends StatelessWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Compact error strip shown ABOVE list content when a refresh failed but
+/// stale data is still on screen — the list stays usable and the failure
+/// isn't silently swallowed.
+class ErrorBanner extends StatelessWidget {
+  final String message;
+  final VoidCallback? onRetry;
+
+  const ErrorBanner({
+    super.key,
+    required this.message,
+    this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.red.withOpacity(0.12),
+        border: Border(bottom: BorderSide(color: Colors.red.withOpacity(0.4))),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.warning_amber_outlined, size: 20, color: Colors.red[700]),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 13, color: Colors.red[700]),
+            ),
+          ),
+          if (onRetry != null)
+            TextButton.icon(
+              onPressed: onRetry,
+              icon: Icon(Icons.refresh, size: 16, color: Colors.red[700]),
+              label: Text('Retry', style: TextStyle(fontSize: 13, color: Colors.red[700])),
+            ),
+        ],
       ),
     );
   }

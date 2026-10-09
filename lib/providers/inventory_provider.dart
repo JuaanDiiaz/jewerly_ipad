@@ -68,12 +68,38 @@ class InventoryProvider extends ChangeNotifier {
 
     try {
       final response = await _apiService.post('/Inventory', body: itemData);
-      if (response != null) {
+      if (response is Map<String, dynamic>) {
         _inventory.add(InventoryModel.fromJson(response));
-        _isLoading = false;
-        notifyListeners();
-        return true;
+      } else {
+        // 2xx with empty body: it succeeded but returned no record — refetch
+        await fetchInventory();
       }
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+    return false;
+  }
+
+  /// Updates an existing inventory row (PUT /Inventory/{id}).
+  Future<bool> updateInventoryItem(int id, Map<String, dynamic> itemData) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await _apiService.put(
+        '/Inventory/$id',
+        body: {'id': id, ...itemData},
+      );
+      // Refresh so the row reflects whatever the server stored
+      await fetchInventory();
+      return true;
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -93,15 +119,18 @@ class InventoryProvider extends ChangeNotifier {
         '/Inventory/$id',
         body: {'quantity': count},
       );
-      if (response != null) {
+      if (response is Map<String, dynamic>) {
         final index = _inventory.indexWhere((i) => i.id == id);
         if (index != -1) {
           _inventory[index] = InventoryModel.fromJson(response);
         }
-        _isLoading = false;
-        notifyListeners();
-        return true;
+      } else {
+        // 2xx with empty body: it succeeded but returned no record — refetch
+        await fetchInventory();
       }
+      _isLoading = false;
+      notifyListeners();
+      return true;
     } catch (e) {
       _error = e.toString();
     } finally {
