@@ -841,11 +841,18 @@ class _SaleScreenState extends State<SaleScreen> {
     );
   }
 
-  /// IVA math from live provider data: rates + product-category links + cart.
+  /// IVA math from the live provider data: rates + product-category links +
+  /// cart. Read-only on purpose: this runs both in the State's build and
+  /// inside modal-sheet builders (out-of-build for this State, where
+  /// `context.watch` asserts) — the summary is rebuilt by every cart/
+  /// checkout state change anyway, and a rate edit landing mid-sheet is not
+  /// worth the subscription.
   CartTaxBreakdown _cartTaxBreakdown(SalesProvider salesProvider) {
-    final rates = context.watch<TaxRateProvider>().taxRates;
-    final links = context.watch<ProductCategoryProvider>().productCategories;
-    return computeCartTax(salesProvider.cart, rates, links);
+    return computeCartTax(
+      salesProvider.cart,
+      context.read<TaxRateProvider>().taxRates,
+      context.read<ProductCategoryProvider>().productCategories,
+    );
   }
 
   /// The Subtotal / tax lines for the summary surfaces.
