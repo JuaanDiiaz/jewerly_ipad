@@ -7,7 +7,7 @@ class Environment {
   static const String _apiUrlKey = 'api_base_url';
   // Matches the ASP.NET backend running locally (.env's API_BASE_URL); users
   // can still override per device from the Settings screen.
-  static const String _defaultUrl = 'https://localhost:7293/api';
+  static const String _defaultUrl = 'http://localhost:5259/api';
   static String _cachedUrl = '';
 
   static void initialize() {

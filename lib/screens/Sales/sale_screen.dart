@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:provider/provider.dart';
 import 'package:p_a_jewerly/providers/sales_provider.dart';
 import 'package:p_a_jewerly/providers/customer_provider.dart';
@@ -68,13 +67,8 @@ class _SaleScreenState extends State<SaleScreen> {
 
     // Check if trying to add more than available
     if (maxQuantity > 0 && existingQty >= maxQuantity) {
-      Fluttertoast.showToast(
-        msg: "No more stock available for ${product.description ?? 'Product'}",
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.BOTTOM,
-        backgroundColor: Colors.orange,
-        textColor: Colors.white,
-        fontSize: 16.0,
+      ScaffoldMessenger.of(context).showSnackBar(
+        warningSnackBar("No more stock available for ${product.description ?? 'Product'}"),
       );
       return;
     }
@@ -88,13 +82,8 @@ class _SaleScreenState extends State<SaleScreen> {
       maxQuantity: maxQuantity,
     ));
 
-    Fluttertoast.showToast(
-      msg: "${product.description ?? 'Product'} added to cart",
-      toastLength: Toast.LENGTH_SHORT,
-      gravity: ToastGravity.BOTTOM,
-      backgroundColor: Colors.green,
-      textColor: Colors.white,
-      fontSize: 16.0,
+    ScaffoldMessenger.of(context).showSnackBar(
+      successSnackBar("${product.description ?? 'Product'} added to cart"),
     );
   }
 

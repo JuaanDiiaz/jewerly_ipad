@@ -196,3 +196,25 @@ SnackBar successSnackBar(String message) {
     ),
   );
 }
+
+SnackBar warningSnackBar(String message) {
+  return SnackBar(
+    content: Row(
+      children: [
+        const Icon(Icons.warning_amber_outlined, color: Colors.white),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            message,
+            style: const TextStyle(color: Colors.white),
+          ),
+        ),
+      ],
+    ),
+    backgroundColor: Colors.orange[700],
+    behavior: SnackBarBehavior.floating,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(10),
+    ),
+  );
+}
