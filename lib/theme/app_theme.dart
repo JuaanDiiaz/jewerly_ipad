@@ -21,9 +21,11 @@ class AppBreakpoints {
   static const double wideChromeAt = 800;
 
   /// Width above which the POS screen shows its cart as a side rail instead
-  /// of the bottom bar — the rail needs more room than the sidebar switch
-  /// (search field + grid + rail must all stay usable).
-  static const double posRailAt = 900;
+  /// of the bottom bar. 760 sits just below iPad portrait (768/810/820), so
+  /// every iPad orientation gets the split grid|rail; phones still fall
+  /// through to the bottom bar. Must stay above [wideChromeAt] so the
+  /// sidebar switch and the rail have room together.
+  static const double posRailAt = 760;
 
   static WindowSize classify(double width) {
     if (width > mediumMax) return WindowSize.expanded;

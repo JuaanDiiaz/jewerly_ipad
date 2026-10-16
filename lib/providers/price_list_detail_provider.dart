@@ -18,6 +18,29 @@ class PriceListDetailProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
+  /// The current row for a product in [priceListId] (all lists when null).
+  /// Validity dates are honored here: this is the single lookup the POS uses
+  /// to price a product, so an expired or not-yet-valid row never prices a
+  /// line. Null when the selected list has no valid row for the product —
+  /// callers must never add at a made-up $0.00.
+  PriceListDetailModel? detailFor(int productId, int? priceListId) {
+    final now = DateTime.now();
+    for (final detail in _priceListDetails) {
+      if (detail.productId != productId) continue;
+      if (priceListId != null && detail.priceListId != priceListId) continue;
+      final validFrom = detail.validFrom;
+      if (validFrom != null && validFrom.isAfter(now)) continue;
+      final validTo = detail.validTo;
+      if (validTo != null && validTo.isBefore(now)) continue;
+      return detail;
+    }
+    return null;
+  }
+
+  /// Convenience over [detailFor]; null when no valid row exists.
+  double? priceFor(int productId, int? priceListId) =>
+      detailFor(productId, priceListId)?.price?.toDouble();
+
   Future<void> fetchPriceListDetails() async {
     _isLoading = _priceListDetails.isEmpty;
     _error = null;

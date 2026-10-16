@@ -30,6 +30,7 @@ class SalesProvider extends ChangeNotifier {
   String? _salespersonName;
   int? _paymentMethodId;
   int? _selectedWarehouseId;
+  int? _selectedPriceListId;
   bool _isLoading = false;
   String? _error;
 
@@ -50,6 +51,7 @@ class SalesProvider extends ChangeNotifier {
   String? get salespersonName => _salespersonName;
   int? get paymentMethodId => _paymentMethodId;
   int? get selectedWarehouseId => _selectedWarehouseId;
+  int? get selectedPriceListId => _selectedPriceListId;
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool get hasMore => _hasMore;
@@ -62,6 +64,11 @@ class SalesProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setSelectedPriceList(int? priceListId) {
+    _selectedPriceListId = priceListId;
+    notifyListeners();
+  }
+
   void addToCart(CartItem item) {
     final existingIndex = _cart.indexWhere((i) => i.productId == item.productId);
     if (existingIndex != -1) {
@@ -71,7 +78,7 @@ class SalesProvider extends ChangeNotifier {
         productName: item.productName,
         quantity: existing.quantity + item.quantity,
         unitPrice: item.unitPrice != 0 ? item.unitPrice : existing.unitPrice,
-        imageUrl: item.imageUrl,
+        imageUrl: item.imageUrl ?? existing.imageUrl,
         maxQuantity: item.maxQuantity > 0 ? item.maxQuantity : existing.maxQuantity,
       );
     } else {
@@ -82,6 +89,24 @@ class SalesProvider extends ChangeNotifier {
 
   void removeFromCart(int productId) {
     _cart.removeWhere((i) => i.productId == productId);
+    notifyListeners();
+  }
+
+  /// Edits the line's unit price in place (the register prices stay
+  /// client-supplied). Mirrors [updateCartItemQuantity]: rebuild the item,
+  /// preserving the rest of the line; price cannot go negative.
+  void updateCartItemPrice(int productId, double price) {
+    final index = _cart.indexWhere((i) => i.productId == productId);
+    if (index == -1) return;
+    final item = _cart[index];
+    _cart[index] = CartItem(
+      productId: item.productId,
+      productName: item.productName,
+      quantity: item.quantity,
+      unitPrice: price < 0 ? 0 : price,
+      imageUrl: item.imageUrl,
+      maxQuantity: item.maxQuantity,
+    );
     notifyListeners();
   }
 

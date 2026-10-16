@@ -7,6 +7,10 @@ String priceListModelToJson(PriceListModel data) => json.encode(data.toJson());
 
 class PriceListModel {
   int id;
+
+  /// The list's display name. The API field is `name` (`description` kept as
+  /// a fallback for older payloads); /PriceList is read-only in the app, so
+  /// toJson is only for symmetry.
   String description;
 
   PriceListModel({
@@ -16,11 +20,11 @@ class PriceListModel {
 
   factory PriceListModel.fromJson(Map<String, dynamic> json) => PriceListModel(
         id: json["id"],
-        description: json["description"],
+        description: json["name"] ?? json["description"] ?? '',
       );
 
   Map<String, dynamic> toJson() => {
         "id": id,
-        "description": description,
+        "name": description,
       };
 }

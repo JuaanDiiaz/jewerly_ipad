@@ -14,12 +14,11 @@ import 'package:p_a_jewerly/providers/tax_rate_provider.dart';
 import 'package:p_a_jewerly/providers/product_category_provider.dart';
 import 'package:p_a_jewerly/models/inventory_model.dart';
 import 'package:p_a_jewerly/models/price_list_model.dart';
-import 'package:p_a_jewerly/models/price_list_detail_model.dart';
 import 'package:p_a_jewerly/theme/app_theme.dart';
 import 'package:p_a_jewerly/utils/format.dart';
-import 'package:p_a_jewerly/utils/sales_tax.dart';
 import 'package:p_a_jewerly/widgets/loading_overlay.dart';
 import 'package:p_a_jewerly/widgets/picked_image.dart';
+import 'package:p_a_jewerly/screens/Sales/cart_panel.dart';
 
 class SaleScreen extends StatefulWidget {
   const SaleScreen({super.key});
@@ -29,7 +28,6 @@ class SaleScreen extends StatefulWidget {
 }
 
 class _SaleScreenState extends State<SaleScreen> {
-  final _salespersonController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   final _searchController = TextEditingController();
   String _searchQuery = '';
@@ -37,16 +35,37 @@ class _SaleScreenState extends State<SaleScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+      final salesProvider = context.read<SalesProvider>();
       context.read<ProductProvider>().fetchProducts(fetchAll: true);
       context.read<CustomerProvider>().fetchCustomers(fetchAll: true);
       context.read<InventoryProvider>().fetchInventory();
-      context.read<PriceListProvider>().fetchPriceLists();
       context.read<PriceListDetailProvider>().fetchPriceListDetails();
       context.read<PaymentMethodProvider>().fetchPaymentMethods();
-      context.read<WarehouseProvider>().fetchWarehouses();
       context.read<ProductImageProvider>().fetchAllImages();
+      // Tax preview inputs (rates + per-product category links): without
+      // these the rail's Total silently shows the pre-tax subtotal.
+      context.read<TaxRateProvider>().fetchTaxRates();
+      context.read<ProductCategoryProvider>().fetchProductCategories();
+      // Preselect warehouse + price list: the grid used to stay blank and
+      // the register unpriced until these were picked from inside the cart
+      // panel — both dead ends now resolve on open (fallbacks remain for a
+      // warehouse-less backend).
+      final warehouseProvider = context.read<WarehouseProvider>();
+      await warehouseProvider.fetchWarehouses();
+      if (!mounted) return;
+      if (salesProvider.selectedWarehouseId == null &&
+          warehouseProvider.warehouses.isNotEmpty) {
+        salesProvider.setWarehouse(warehouseProvider.warehouses.first.id);
+      }
+      final priceListProvider = context.read<PriceListProvider>();
+      await priceListProvider.fetchPriceLists();
+      if (!mounted) return;
+      if (salesProvider.selectedPriceListId == null &&
+          priceListProvider.priceLists.isNotEmpty) {
+        salesProvider.setSelectedPriceList(priceListProvider.priceLists.first.id);
+      }
     });
     _searchController.addListener(() {
       setState(() {
@@ -57,13 +76,23 @@ class _SaleScreenState extends State<SaleScreen> {
 
   @override
   void dispose() {
-    _salespersonController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
   void _addToCart(dynamic product, double price, {int maxQuantity = 0}) {
     final salesProvider = context.read<SalesProvider>();
+
+    if (price <= 0) {
+      // Never add at a made-up $0.00 — that bug is what killed the old grid
+      // quick-add. Quick-add only fires when the selected list prices the
+      // product; the long-press detail sheet offers every list's prices.
+      ScaffoldMessenger.of(context).showSnackBar(
+        warningSnackBar(
+            'No price in this list for ${product.description ?? 'this product'} — long-press the product to pick one'),
+      );
+      return;
+    }
 
     // Get existing cart quantity for this product
     final existingCartItem = salesProvider.cart.where((i) => i.productId == product.id).firstOrNull;
@@ -78,17 +107,42 @@ class _SaleScreenState extends State<SaleScreen> {
     }
 
     HapticFeedback.mediumImpact();
+    // Cart tiles render a thumbnail; keep the same image the grid showed.
+    final imageProvider = context.read<ProductImageProvider>();
+    final productImages = imageProvider.getImagesForProduct(product.id);
+    final imageUrl = product.picture ??
+        (productImages.isNotEmpty ? productImages.first.imageUrl : null);
+
     salesProvider.addToCart(CartItem(
       productId: product.id,
       productName: product.description ?? 'Product ${product.id}',
       quantity: 1,
       unitPrice: price,
+      imageUrl: imageUrl,
       maxQuantity: maxQuantity,
     ));
 
     ScaffoldMessenger.of(context).showSnackBar(
       successSnackBar("${product.description ?? 'Product'} added to cart"),
     );
+  }
+
+  /// Price-list switch from the cart rail: prices are client-supplied per
+  /// list, so the switch reprices every cart line the new list has a row for
+  /// (lines with no row in the new list keep their price). The same merge in
+  /// SalesProvider.addToCart also lets a long-press add from another list's
+  /// sheet row reprice an existing line explicitly.
+  void _onPriceListSwitch(int? priceListId) {
+    final salesProvider = context.read<SalesProvider>();
+    salesProvider.setSelectedPriceList(priceListId);
+    if (priceListId == null) return;
+    final priceDetailProvider = context.read<PriceListDetailProvider>();
+    for (final item in salesProvider.cart) {
+      final price = priceDetailProvider.priceFor(item.productId, priceListId);
+      if (price != null && price > 0 && price != item.unitPrice) {
+        salesProvider.updateCartItemPrice(item.productId, price);
+      }
+    }
   }
 
   void _showProductDetails(dynamic product, InventoryModel? inventory) {
@@ -304,7 +358,7 @@ class _SaleScreenState extends State<SaleScreen> {
                           ),
                         )),
                         const Divider(height: 24),
-                        ..._buildTaxRows(_cartTaxBreakdown(salesProvider),
+                        ...buildTaxRows(cartTaxBreakdown(context, salesProvider),
                             totalLabelWithTax: true),
                         const SizedBox(height: 20),
                         Consumer<SalesProvider>(
@@ -422,9 +476,6 @@ class _SaleScreenState extends State<SaleScreen> {
 
     if (success && mounted) {
       HapticFeedback.heavyImpact();
-      // Clear the form for the next sale (otherwise the next checkout would
-      // record the previous sale's salesperson / stale notes).
-      _salespersonController.clear();
       // CompleteSale decrements stock server-side — refetch so the product
       // grid and "N available" labels reflect it immediately.
       context.read<InventoryProvider>().fetchInventory();
@@ -456,19 +507,6 @@ class _SaleScreenState extends State<SaleScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > AppBreakpoints.posRailAt;
 
-    // Calculate grid columns based on available space
-    // Products get ~65% of screen, cart sidebar gets ~35%
-    int crossAxisCount;
-    if (screenWidth > 1400) {
-      crossAxisCount = 4;
-    } else if (screenWidth > 1000) {
-      crossAxisCount = 3;
-    } else if (screenWidth > 600) {
-      crossAxisCount = 2;
-    } else {
-      crossAxisCount = 1;
-    }
-
     return Form(
       key: _formKey,
       child: Container(
@@ -482,12 +520,11 @@ class _SaleScreenState extends State<SaleScreen> {
               child: isTablet
                   ? Row(
                       children: [
-                        // Products grid - 65% width
+                        // Products grid
                         Expanded(
-                          flex: 65,
-                          child: _buildProductsGrid(crossAxisCount),
+                          child: _buildProductsGrid(),
                         ),
-                        // Cart sidebar - 35% width, min 300, max 400
+                        // Cart rail - 35% width, min 300, max 400
                         Container(
                           width: screenWidth * 0.35,
                           constraints: const BoxConstraints(minWidth: 300, maxWidth: 400),
@@ -501,13 +538,16 @@ class _SaleScreenState extends State<SaleScreen> {
                               ),
                             ],
                           ),
-                          child: _buildCartPanel(),
+                          child: CartPanel(
+                            onCheckout: _showSummary,
+                            onPriceListChanged: _onPriceListSwitch,
+                          ),
                         ),
                       ],
                     )
                   : Column(
                       children: [
-                        Expanded(child: _buildProductsGrid(crossAxisCount)),
+                        Expanded(child: _buildProductsGrid()),
                         _buildBottomBar(),
                       ],
                     ),
@@ -630,7 +670,7 @@ class _SaleScreenState extends State<SaleScreen> {
     );
   }
 
-  Widget _buildProductsGrid(int crossAxisCount) {
+  Widget _buildProductsGrid() {
     return Consumer4<SalesProvider, ProductProvider, InventoryProvider, PriceListDetailProvider>(
       builder: (context, salesProvider, productProvider, inventoryProvider, priceDetailProvider, _) {
         if (productProvider.isLoading && productProvider.products.isEmpty) {
@@ -690,339 +730,57 @@ class _SaleScreenState extends State<SaleScreen> {
             inventoryProvider.fetchInventory(),
             productProvider.fetchProducts(),
           ]),
-          child: GridView.builder(
-            padding: const EdgeInsets.all(16),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: crossAxisCount,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              childAspectRatio: 0.72,
-            ),
-          itemCount: productsWithInventory.length,
-          itemBuilder: (context, index) {
-            final product = productsWithInventory[index];
-            final inventory = inventoryMap[product.id];
-            final availablePrices = priceDetailProvider.priceListDetails
-                .where((d) => d.productId == product.id)
-                .toList();
-            final imageProvider = context.read<ProductImageProvider>();
-            final productImages = imageProvider.getImagesForProduct(product.id);
-            final imageUrl = product.picture ??
-                (productImages.isNotEmpty ? productImages.first.imageUrl : null);
-
-            return _ProductCard(
-              product: product,
-              inventory: inventory,
-              availablePrices: availablePrices,
-              imageUrl: imageUrl,
-              onViewDetails: () => _showProductDetails(product, inventory),
-            );
-          },
-            ),
-          );
-        },
-    );
-  }
-
-  Widget _buildCartPanel() {
-    return Consumer<SalesProvider>(
-      builder: (context, salesProvider, _) {
-        return Column(
-          children: [
-            // Cart header
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [AppTheme.deepPurple, AppTheme.mediumPurple],
+          child: LayoutBuilder(
+            // Column count from the actual grid width, not the screen: beside
+            // the cart rail the grid is narrower than the window, and the
+            // rail's width flexes with the window.
+            builder: (context, constraints) {
+              final crossAxisCount = (constraints.maxWidth / 240).floor().clamp(1, 5);
+              return GridView.builder(
+                padding: const EdgeInsets.all(16),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 0.72,
                 ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.shopping_cart, color: Colors.white),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Current Sale',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                itemCount: productsWithInventory.length,
+                itemBuilder: (context, index) {
+                  final product = productsWithInventory[index];
+                  final inventory = inventoryMap[product.id];
+                  // The tile advertises the REGISTER price: the selected
+                  // price list's valid row, not the cheapest of all lists
+                  // (which misled when the sale wasn't that list's).
+                  final currentPriceDetail = priceDetailProvider.detailFor(
+                      product.id, salesProvider.selectedPriceListId);
+                  final currentPrice = currentPriceDetail?.price?.toDouble();
+                  final imageProvider = context.read<ProductImageProvider>();
+                  final productImages = imageProvider.getImagesForProduct(product.id);
+                  final imageUrl = product.picture ??
+                      (productImages.isNotEmpty ? productImages.first.imageUrl : null);
+
+                  return _ProductCard(
+                    product: product,
+                    inventory: inventory,
+                    currentPrice: currentPrice,
+                    imageUrl: imageUrl,
+                    onQuickAdd: () => _addToCart(
+                      product,
+                      currentPrice ?? 0,
+                      maxQuantity: inventory?.quantity ?? 0,
                     ),
-                  ),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      '${salesProvider.cart.length}',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Warehouse selector
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Consumer<WarehouseProvider>(
-                builder: (context, warehouseProvider, _) {
-                  return DropdownButtonFormField<int?>(
-                    decoration: InputDecoration(
-                      labelText: 'Warehouse',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      prefixIcon: const Icon(Icons.warehouse),
-                      filled: true,
-                      fillColor: AppTheme.background,
-                    ),
-                    value: salesProvider.selectedWarehouseId,
-                    items: [
-                      const DropdownMenuItem(value: null, child: Text('Select warehouse')),
-                      ...warehouseProvider.warehouses.map((wh) {
-                        return DropdownMenuItem(
-                          value: wh.id,
-                          child: Text(wh.name ?? 'Warehouse ${wh.id}'),
-                        );
-                      }),
-                    ],
-                    onChanged: (value) => salesProvider.setWarehouse(value),
+                    onShowDetails: () => _showProductDetails(product, inventory),
                   );
                 },
-              ),
-            ),
-            // Cart items
-            Expanded(
-              child: salesProvider.cart.isEmpty
-                  ? _buildEmptyCart()
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: salesProvider.cart.length,
-                      itemBuilder: (context, index) {
-                        final item = salesProvider.cart[index];
-                        return _CartItemTile(
-                          item: item,
-                          onRemove: () => salesProvider.removeFromCart(item.productId),
-                          onQuantityChanged: (qty) =>
-                              salesProvider.updateCartItemQuantity(item.productId, qty),
-                        );
-                      },
-                    ),
-            ),
-            // Cart summary
-            if (salesProvider.cart.isNotEmpty) _buildCartSummary(salesProvider),
-          ],
+              );
+            },
+          ),
         );
       },
     );
   }
 
-  Widget _buildEmptyCart() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.shopping_basket_outlined, size: 64, color: AppTheme.mutedText),
-          const SizedBox(height: 16),
-          Text(
-            'Cart is empty',
-            style: TextStyle(color: AppTheme.mutedText, fontSize: 16),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Add products from the grid',
-            style: TextStyle(color: AppTheme.mutedText, fontSize: 13),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// IVA math from the live provider data: rates + product-category links +
-  /// cart. Read-only on purpose: this runs both in the State's build and
-  /// inside modal-sheet builders (out-of-build for this State, where
-  /// `context.watch` asserts) — the summary is rebuilt by every cart/
-  /// checkout state change anyway, and a rate edit landing mid-sheet is not
-  /// worth the subscription.
-  CartTaxBreakdown _cartTaxBreakdown(SalesProvider salesProvider) {
-    return computeCartTax(
-      salesProvider.cart,
-      context.read<TaxRateProvider>().taxRates,
-      context.read<ProductCategoryProvider>().productCategories,
-    );
-  }
-
-  /// The Subtotal / tax lines for the summary surfaces.
-  /// [totalLabelWithTax] true renders the bold Total row too (checkout
-  /// confirmation sheet); false leaves that to the caller (cart summary puts
-  /// its own Total row after the tax lines).
-  List<Widget> _buildTaxRows(CartTaxBreakdown tax,
-      {required bool totalLabelWithTax}) {
-    final rows = <Widget>[
-      Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text('Subtotal',
-              style: TextStyle(color: AppTheme.mutedText)),
-          Text(formatCurrency(tax.subtotal)),
-        ],
-      ),
-    ];
-    for (final entry in tax.taxesByType.entries) {
-      rows.add(Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(entry.key, style: TextStyle(color: AppTheme.mutedText)),
-          Text(formatCurrency(entry.value)),
-        ],
-      ));
-    }
-    if (totalLabelWithTax) {
-      rows.add(const SizedBox(height: 6));
-      rows.add(Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Text('Total', style: TextStyle(fontWeight: FontWeight.bold)),
-          Text(formatCurrency(tax.total),
-              style: const TextStyle(
-                  fontWeight: FontWeight.bold, color: AppTheme.success)),
-        ],
-      ));
-    }
-    return rows;
-  }
-
-  Widget _buildCartSummary(SalesProvider salesProvider) {
-    // Prices are IVA-exclusive: the breakdown (per active rate, mirroring the
-    // backend's per-line rounding) is added on top of the cart's posted prices.
-    final tax = _cartTaxBreakdown(salesProvider);
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: AppTheme.background,
-        border: Border(
-          top: BorderSide(color: AppTheme.hairline),
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ..._buildTaxRows(tax, totalLabelWithTax: false),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Total:', style: TextStyle(color: AppTheme.mutedText, fontSize: 13)),
-              Text('${formatCurrency(tax.total)}',
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.success,
-                      fontSize: 15)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // Customer
-          Consumer<CustomerProvider>(
-            builder: (context, customerProvider, _) {
-              return SizedBox(
-                width: double.infinity,
-                child: DropdownButtonFormField<int?>(
-                  decoration: InputDecoration(
-                    labelText: 'Customer',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    isDense: true,
-                  ),
-                  value: salesProvider.selectedCustomerId,
-                  items: [
-                    const DropdownMenuItem(value: null, child: Text('Customer', style: TextStyle(fontSize: 13))),
-                    ...customerProvider.customers.map((customer) {
-                      return DropdownMenuItem(
-                        value: customer.id,
-                        child: Text(customer.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
-                      );
-                    }),
-                  ],
-                  onChanged: (value) => salesProvider.setCustomer(value),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 6),
-          // Payment
-          Consumer<PaymentMethodProvider>(
-            builder: (context, pmProvider, _) {
-              return SizedBox(
-                width: double.infinity,
-                child: DropdownButtonFormField<int?>(
-                  decoration: InputDecoration(
-                    labelText: 'Payment',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    isDense: true,
-                  ),
-                  value: salesProvider.paymentMethodId,
-                  items: [
-                    const DropdownMenuItem(value: null, child: Text('Payment', style: TextStyle(fontSize: 13))),
-                    ...pmProvider.paymentMethods.map((method) {
-                      return DropdownMenuItem(
-                        value: method.id,
-                        child: Text(method.description ?? 'Method ${method.id}', style: const TextStyle(fontSize: 13)),
-                      );
-                    }),
-                  ],
-                  onChanged: (value) => salesProvider.setPaymentMethodId(value),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 6),
-          // Salesperson
-          TextFormField(
-            controller: _salespersonController,
-            style: const TextStyle(fontSize: 13),
-            decoration: InputDecoration(
-              labelText: 'Salesperson',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              prefixIcon: const Icon(Icons.badge, size: 18),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              isDense: true,
-            ),
-            onChanged: (value) => salesProvider.setSalesperson(value),
-          ),
-          const SizedBox(height: 10),
-          // Checkout button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _showSummary,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.success,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.shopping_cart_checkout, size: 18),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Checkout ${formatCurrency(_cartTaxBreakdown(salesProvider).total)}',
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Compact layout: the cart panel (warehouse selector, items, customer,
+  /// Compact layout: the cart panel normally lives in the side rail, which
   /// payment, salesperson, checkout) normally lives in the side rail, which
   /// portrait phones/small tablets don't show — surface it as a tall bottom
   /// sheet. Available even with an empty cart: the warehouse must be
@@ -1037,7 +795,10 @@ class _SaleScreenState extends State<SaleScreen> {
       ),
       builder: (sheetContext) => SizedBox(
         height: MediaQuery.heightOf(sheetContext) * 0.85,
-        child: _buildCartPanel(),
+        child: CartPanel(
+          onCheckout: _showSummary,
+          onPriceListChanged: _onPriceListSwitch,
+        ),
       ),
     );
   }
@@ -1090,8 +851,11 @@ class _SaleScreenState extends State<SaleScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: IconButton(
-                    onPressed: () => _showQuickCustomerPaymentSheet(),
-                    icon: const Icon(Icons.person_add, color: AppTheme.deepPurple),
+                    // Same cart panel as the button: the person-add shortcut
+                    // used to open a separate customer/payment sheet — the
+                    // CartPanel covers those selectors now.
+                    onPressed: _showCartSheet,
+                    icon: const Icon(Icons.manage_accounts, color: AppTheme.deepPurple),
                   ),
                 ),
               ],
@@ -1136,121 +900,31 @@ class _SaleScreenState extends State<SaleScreen> {
     );
   }
 
-  void _showQuickCustomerPaymentSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.5,
-        builder: (context, scrollController) => SingleChildScrollView(
-          controller: scrollController,
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Sale Details',
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                Consumer<CustomerProvider>(
-                  builder: (context, customerProvider, _) {
-                    return DropdownButtonFormField<int?>(
-                      decoration: InputDecoration(
-                        labelText: 'Customer',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        prefixIcon: const Icon(Icons.person),
-                      ),
-                      value: context.read<SalesProvider>().selectedCustomerId,
-                      items: [
-                        const DropdownMenuItem(value: null, child: Text('Select customer')),
-                        ...customerProvider.customers.map((customer) {
-                          return DropdownMenuItem(
-                            value: customer.id,
-                            child: Text(customer.name),
-                          );
-                        }),
-                      ],
-                      onChanged: (value) {
-                        context.read<SalesProvider>().setCustomer(value);
-                      },
-                    );
-                  },
-                ),
-                const SizedBox(height: 16),
-                Consumer<PaymentMethodProvider>(
-                  builder: (context, pmProvider, _) {
-                    return DropdownButtonFormField<int?>(
-                      decoration: InputDecoration(
-                        labelText: 'Payment Method',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        prefixIcon: const Icon(Icons.payment),
-                      ),
-                      value: context.read<SalesProvider>().paymentMethodId,
-                      items: [
-                        const DropdownMenuItem(value: null, child: Text('Select method')),
-                        ...pmProvider.paymentMethods.map((method) {
-                          return DropdownMenuItem(
-                            value: method.id,
-                            child: Text(method.description ?? 'Method ${method.id}'),
-                          );
-                        }),
-                      ],
-                      onChanged: (value) {
-                        context.read<SalesProvider>().setPaymentMethodId(value);
-                      },
-                    );
-                  },
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: TextFormField(
-                    controller: _salespersonController,
-                    decoration: InputDecoration(
-                      labelText: 'Salesperson',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      prefixIcon: const Icon(Icons.badge, size: 20),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    ),
-                    onChanged: (value) {
-                      context.read<SalesProvider>().setSalesperson(value);
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _ProductCard extends StatefulWidget {
   final dynamic product;
   final InventoryModel? inventory;
-  final List<PriceListDetailModel> availablePrices;
+
+  /// The selected price list's current price (validity-filtered); null when
+  /// the list has no valid row — the tile is dimmed and quick-add is refused
+  /// by [_SaleScreenState._addToCart] rather than adding at a made-up $0.00.
+  final double? currentPrice;
   final String? imageUrl;
-  final VoidCallback onViewDetails;
+
+  /// Tap anywhere on the tile: add one unit at [currentPrice].
+  final VoidCallback onQuickAdd;
+
+  /// Long-press: the full detail sheet (carousel, every list's price rows).
+  final VoidCallback onShowDetails;
 
   const _ProductCard({
     required this.product,
     this.inventory,
-    required this.availablePrices,
+    this.currentPrice,
     this.imageUrl,
-    required this.onViewDetails,
+    required this.onQuickAdd,
+    required this.onShowDetails,
   });
 
   @override
@@ -1262,16 +936,20 @@ class _ProductCardState extends State<_ProductCard> {
 
   @override
   Widget build(BuildContext context) {
-    final lowestPrice = widget.availablePrices.isNotEmpty
-        ? widget.availablePrices.map((p) => p.price ?? 0).reduce((a, b) => a < b ? a : b)
-        : null;
+    final hasPrice = widget.currentPrice != null && widget.currentPrice! > 0;
 
     return GestureDetector(
       onTapDown: (_) => setState(() => _isPressed = true),
       onTapUp: (_) => setState(() => _isPressed = false),
       onTapCancel: () => setState(() => _isPressed = false),
-      onTap: widget.onViewDetails,
-      child: AnimatedContainer(
+      onTap: widget.onQuickAdd,
+      onLongPress: widget.onShowDetails,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 150),
+        // Dim tiles the selected list can't price so "why won't it add?"
+        // answers itself at a glance.
+        opacity: hasPrice ? 1.0 : 0.5,
+        child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         transform: Matrix4.identity()..scale(_isPressed ? 0.97 : 1.0),
         child: Card(
@@ -1297,8 +975,9 @@ class _ProductCardState extends State<_ProductCard> {
                             )
                           : _buildPlaceholder(),
                     ),
-                    // Price badge
-                    if (lowestPrice != null)
+                    // Price badge: the selected list's current price — the
+                    // same figure the tap-add will use (no $0.00 adds, ever).
+                    if (hasPrice)
                       Positioned(
                         top: 8,
                         right: 8,
@@ -1318,7 +997,7 @@ class _ProductCardState extends State<_ProductCard> {
                             ],
                           ),
                           child: Text(
-                            '${formatCurrency(lowestPrice)}',
+                            '${formatCurrency(widget.currentPrice!)}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -1344,35 +1023,6 @@ class _ProductCardState extends State<_ProductCard> {
                           ),
                         ),
                       ),
-                    // Quick add button removed: it added items at a $0.00
-                    // price because the grid tile has no price info. This
-                    // gold affordance opens the detail sheet (which offers
-                    // each available price-list price) instead.
-                    Positioned(
-                      bottom: 8,
-                      right: 8,
-                      child: GestureDetector(
-                        onTap: widget.onViewDetails,
-                        child: Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [AppTheme.primaryGold, AppTheme.secondaryGold],
-                            ),
-                            borderRadius: BorderRadius.circular(10),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppTheme.primaryGold.withOpacity(0.4),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: const Icon(Icons.add, color: Colors.white, size: 20),
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -1430,6 +1080,7 @@ class _ProductCardState extends State<_ProductCard> {
           ),
         ),
       ),
+      ),
     );
   }
 
@@ -1450,136 +1101,6 @@ class _ProductCardState extends State<_ProductCard> {
           Icons.diamond_outlined,
           size: 48,
           color: AppTheme.primaryGold.withOpacity(0.5),
-        ),
-      ),
-    );
-  }
-}
-
-class _CartItemTile extends StatelessWidget {
-  final CartItem item;
-  final VoidCallback onRemove;
-  final Function(int) onQuantityChanged;
-
-  const _CartItemTile({
-    required this.item,
-    required this.onRemove,
-    required this.onQuantityChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            // Item info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.productName,
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${formatCurrency(item.unitPrice)} each',
-                    style: TextStyle(color: AppTheme.mutedText, fontSize: 12),
-                  ),
-                  // Stock feedback: shows the ceiling and flags when the cart
-                  // is at (or over) it.
-                  if (item.maxQuantity > 0)
-                    Text(
-                      '${item.maxQuantity} available',
-                      style: TextStyle(
-                        color: item.quantity >= item.maxQuantity ? AppTheme.error : AppTheme.mutedText,
-                        fontSize: 11,
-                        fontWeight: item.quantity >= item.maxQuantity ? FontWeight.w600 : FontWeight.w400,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            // Quantity
-            Container(
-              decoration: BoxDecoration(
-                color: AppTheme.background,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.remove, size: 16),
-                    onPressed: () {
-                      HapticFeedback.lightImpact();
-                      if (item.quantity > 1) {
-                        onQuantityChanged(item.quantity - 1);
-                      } else {
-                        onRemove();
-                      }
-                    },
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                  ),
-                  SizedBox(
-                    width: 24,
-                    child: Text(
-                      '${item.quantity}',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.add, size: 16),
-                    onPressed: () {
-                      // Stock ceiling: no silent clamp — tell the user why the
-                      // number won't move.
-                      if (item.maxQuantity > 0 && item.quantity >= item.maxQuantity) {
-                        HapticFeedback.lightImpact();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Only ${item.maxQuantity} available'),
-                            duration: const Duration(seconds: 1),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                        return;
-                      }
-                      HapticFeedback.lightImpact();
-                      onQuantityChanged(item.quantity + 1);
-                    },
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            // Total
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  '${formatCurrency(item.total)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.error),
-                  onPressed: onRemove,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                ),
-              ],
-            ),
-          ],
         ),
       ),
     );

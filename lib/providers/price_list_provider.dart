@@ -28,6 +28,9 @@ class PriceListProvider extends ChangeNotifier {
       _priceLists = (response as List)
           .map((json) => PriceListModel.fromJson(json))
           .toList();
+      // MySQL has no ORDER BY here — without a sort the segmented control and
+      // the "first list" default flip between runs.
+      _priceLists.sort((a, b) => a.id.compareTo(b.id));
       _lastFetched = DateTime.now();
     } catch (e) {
       _error = e.toString();
