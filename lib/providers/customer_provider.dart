@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:p_a_jewerly/infraestructure/services/api_service.dart';
 import 'package:p_a_jewerly/models/customer_model.dart';
 
@@ -15,7 +15,7 @@ class CustomerProvider extends ChangeNotifier {
   String? _searchQuery;
 
   DateTime _lastFetched = DateTime.fromMillisecondsSinceEpoch(0);
-  /// True when no data or the last successful fetch is older than 60s —
+  /// True when no data or the last successful fetch is older than 60s â€”
   /// HomeScreen refetches on navigation only when this is true.
   bool get isStale =>
       DateTime.now().difference(_lastFetched) > const Duration(seconds: 60);
@@ -28,7 +28,7 @@ class CustomerProvider extends ChangeNotifier {
 
   /// [loadMore] appends the next page to [customers]; a plain call resets
   /// the list. [query] filters server-side and resets to page 1. [fetchAll]
-  /// walks every page in one call — for screens that need the whole
+  /// walks every page in one call â€” for screens that need the whole
   /// customer list (name lookups, selects), not for the paged list.
   Future<void> fetchCustomers({
     String? query,
@@ -71,7 +71,7 @@ class CustomerProvider extends ChangeNotifier {
         targetPage++;
       } while (keepGoing &&
           (targetPage - 1) * lastPageSize < totalCount &&
-          targetPage <= 25);
+          targetPage <= 200);
 
       final page = targetPage - 1;
       if (loadMore) {
@@ -111,7 +111,7 @@ class CustomerProvider extends ChangeNotifier {
       if (response is Map<String, dynamic>) {
         _customers.insert(0, CustomerModel.fromJson(response));
       } else {
-        // 2xx with empty body: it succeeded but returned no record — refetch
+        // 2xx with empty body: it succeeded but returned no record â€” refetch
         await fetchCustomers();
       }
       _isLoading = false;
@@ -139,7 +139,7 @@ class CustomerProvider extends ChangeNotifier {
           _customers[index] = CustomerModel.fromJson(response);
         }
       } else {
-        // 2xx with empty body: it succeeded but returned no record — refetch
+        // 2xx with empty body: it succeeded but returned no record â€” refetch
         await fetchCustomers();
       }
       _isLoading = false;

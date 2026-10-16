@@ -152,47 +152,9 @@ class InventoryProvider extends ChangeNotifier {
     return false;
   }
 
-  Future<bool> updateInventoryCount(int id, int count) async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-
-    try {
-      final response = await _apiService.put(
-        '/Inventory/$id',
-        body: {'quantity': count},
-      );
-      if (response is Map<String, dynamic>) {
-        final index = _inventory.indexWhere((i) => i.id == id);
-        if (index != -1) {
-          _inventory[index] = InventoryModel.fromJson(response);
-        }
-      } else {
-        // 2xx with empty body: it succeeded but returned no record — refetch
-        await fetchInventory();
-      }
-      _isLoading = false;
-      notifyListeners();
-      return true;
-    } catch (e) {
-      _error = e.toString();
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-    return false;
-  }
-
-  Future<bool> decrementQuantity(int productId, int warehouseId, int amount) async {
-    // Find inventory by product and warehouse
-    try {
-      final inv = _inventory.firstWhere(
-        (i) => i.productId == productId && i.warehouseId == warehouseId,
-      );
-      final newQuantity = (inv.quantity ?? 0) - amount;
-      return updateInventoryCount(inv.id, newQuantity < 0 ? 0 : newQuantity);
-    } catch (_) {
-      return false;
-    }
-  }
+  // Note: stock changes go through /Inventory/UpdateQuantity (server-applied
+  // delta with a below-zero guard) or /InventoryMovement — never a client-
+  // computed absolute quantity. The old updateInventoryCount/decrementQuantity
+  // helpers (unused) posted client math and, worse, a partial PUT body that
+  // the server's blind overwrite would use to blank the other columns.
 }

@@ -63,8 +63,9 @@ class ProductProvider extends ChangeNotifier {
       notifyListeners();
     }
 
-    // Keep requesting while fetching-all (capped so a pathological server
-    // response can't loop forever).
+    // Keep requesting while fetching-all (the totalCount stop above ends the
+    // loop; the cap is a backstop so a pathological server can't loop it
+    // forever — 200 pages × 200 rows covers 40,000 records).
     final keepGoing = fetchAll && !loadMore;
     try {
       var targetPage = loadMore ? _page + 1 : 1;
@@ -86,7 +87,7 @@ class ProductProvider extends ChangeNotifier {
         targetPage++;
       } while (keepGoing &&
           (targetPage - 1) * lastPageSize < totalCount &&
-          targetPage <= 25);
+          targetPage <= 200);
 
       final page = targetPage - 1;
       if (loadMore) {

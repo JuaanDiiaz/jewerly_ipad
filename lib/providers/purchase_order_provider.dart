@@ -46,11 +46,15 @@ class PurchaseOrderProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _apiService.get('/PurchaseOrderDetail');
-      final allDetails = (response as List)
+      // Server-side filter: the endpoint accepts purchaseOrderId, and
+      // fetching the whole table (then filtering locally) truncated as the
+      // ledger grows and paid for rows we'd throw away.
+      final response = await _apiService.getWithParams('/PurchaseOrderDetail', params: {
+        'purchaseOrderId': '$orderId',
+      });
+      _orderDetails = (response as List)
           .map((json) => PurchaseOrderDetailModel.fromJson(json))
           .toList();
-      _orderDetails = allDetails.where((d) => d.purchaseOrderId == orderId).toList();
     } catch (e) {
       _error = e.toString();
     } finally {

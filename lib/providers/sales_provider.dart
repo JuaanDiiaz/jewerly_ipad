@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:p_a_jewerly/infraestructure/services/api_service.dart';
 import 'package:p_a_jewerly/models/sales_order_header_model.dart';
 
@@ -39,7 +39,7 @@ class SalesProvider extends ChangeNotifier {
   bool _isLoadingMore = false;
 
   DateTime _lastFetched = DateTime.fromMillisecondsSinceEpoch(0);
-  /// True when no data or the last successful fetch is older than 60s —
+  /// True when no data or the last successful fetch is older than 60s â€”
   /// HomeScreen refetches on navigation only when this is true.
   bool get isStale =>
       DateTime.now().difference(_lastFetched) > const Duration(seconds: 60);
@@ -131,7 +131,7 @@ class SalesProvider extends ChangeNotifier {
   }
 
   /// [loadMore] appends the next page to [sales]; a plain call resets the
-  /// list to page 1. [fetchAll] walks every page in one call — only for
+  /// list to page 1. [fetchAll] walks every page in one call â€” only for
   /// screens that need the complete history (payment status lists).
   Future<void> fetchSales({
     DateTime? fromDate,
@@ -173,7 +173,7 @@ class SalesProvider extends ChangeNotifier {
         targetPage++;
       } while (keepGoing &&
           (targetPage - 1) * lastPageSize < totalCount &&
-          targetPage <= 25);
+          targetPage <= 200);
 
       final page = targetPage - 1;
       if (loadMore) {
@@ -199,7 +199,7 @@ class SalesProvider extends ChangeNotifier {
     }
 
     if (_isLoading) {
-      // A checkout network call is already in flight — the button's own
+      // A checkout network call is already in flight â€” the button's own
       // guard should make this unreachable, but a double POST here would
       // duplicate the sale and double-decrement stock, so refuse it.
       return false;

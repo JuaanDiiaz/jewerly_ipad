@@ -500,29 +500,18 @@ class _PhysicalCountMainScreenState extends State<PhysicalCountMainScreen> {
       final failed = <PhysicalCountItem>[];
       for (final item in adjustments) {
         try {
-          // Create inventory movement
+          // The movement is the single source of the adjustment: the server
+          // applies the signed delta to stock atomically with the record.
+          // Posting UpdateQuantity with the variance as well used to apply
+          // every adjustment twice.
           await api.post('/InventoryMovement', body: {
-            'inventoryId': item.inventoryId,
             'productId': item.productId,
             'warehouseId': _currentSession!.warehouseId,
             'movementType': 'Adjustment',
             'quantity': item.variance,
-            'reference': 'Physical Count ${_currentSession!.id}',
             'notes': item.notes ?? 'Variance from physical count',
             'movementDate': DateTime.now().toIso8601String(),
           });
-
-          // Also update the inventory quantity directly
-          if (item.inventoryId != null) {
-            await api.put(
-              '/Inventory/UpdateQuantity',
-              body: {
-                'productId': item.productId,
-                'warehouseId': _currentSession!.warehouseId,
-                'quantityChange': item.variance,
-              },
-            );
-          }
           succeeded++;
         } catch (e) {
           debugPrint('Error creating movement for item ${item.productId}: $e');
