@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:p_a_jewerly/providers/sales_tax_provider.dart';
 import 'package:p_a_jewerly/models/sales_tax_detail_model.dart';
 import 'package:p_a_jewerly/widgets/loading_overlay.dart';
+import 'package:p_a_jewerly/theme/app_theme.dart';
 
 class SalesTaxScreen extends StatefulWidget {
   const SalesTaxScreen({super.key});
@@ -22,6 +23,7 @@ class _SalesTaxScreenState extends State<SalesTaxScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<SalesTaxProvider>().fetchSalesTaxes();
     });
   }
@@ -154,7 +156,7 @@ class _SalesTaxScreenState extends State<SalesTaxScreen> {
               Navigator.pop(context);
               context.read<SalesTaxProvider>().deleteSalesTax(id);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
             child: const Text('Delete', style: TextStyle(color: Colors.white)),
           ),
         ],
@@ -201,8 +203,8 @@ class _SalesTaxScreenState extends State<SalesTaxScreen> {
                 margin: const EdgeInsets.only(bottom: 12),
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: Colors.red[100],
-                    child: const Icon(Icons.percent, color: Colors.red),
+                    backgroundColor: AppTheme.error.withOpacity(0.2),
+                    child: Icon(Icons.percent, color: AppTheme.error),
                   ),
                   title: Text(tax.taxType ?? 'Tax ${tax.id}'),
                   subtitle: Column(

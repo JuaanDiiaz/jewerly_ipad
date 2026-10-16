@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:p_a_jewerly/providers/payment_method_provider.dart';
 import 'package:p_a_jewerly/widgets/base_screen.dart';
 import 'package:p_a_jewerly/widgets/loading_overlay.dart';
+import 'package:p_a_jewerly/theme/app_theme.dart';
 
 class PaymentMethodsScreen extends StatefulWidget {
   const PaymentMethodsScreen({super.key});
@@ -16,6 +17,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<PaymentMethodProvider>().fetchPaymentMethods();
     });
   }
@@ -79,7 +81,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+                  Icon(Icons.error_outline, size: 64, color: AppTheme.error),
                   const SizedBox(height: 16),
                   Text(provider.error!, textAlign: TextAlign.center),
                   ElevatedButton(
@@ -107,8 +109,8 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
                 margin: const EdgeInsets.only(bottom: 12),
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: Colors.green[100],
-                    child: const Icon(Icons.credit_card, color: Colors.green),
+                    backgroundColor: AppTheme.success.withOpacity(0.2),
+                    child: Icon(Icons.credit_card, color: AppTheme.success),
                   ),
                   title: Text(method.description ?? 'Payment Method ${method.id}'),
                   subtitle: Text('ID: ${method.id}'),
@@ -122,7 +124,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
                       IconButton(
                         icon: const Icon(Icons.delete),
                         onPressed: () => _confirmDelete(method.id, method.description ?? ''),
-                        color: Colors.red,
+                        color: AppTheme.error,
                       ),
                     ],
                   ),

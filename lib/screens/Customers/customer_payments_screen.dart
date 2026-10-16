@@ -4,6 +4,7 @@ import 'package:p_a_jewerly/providers/customer_payment_provider.dart';
 import 'package:p_a_jewerly/providers/customer_provider.dart';
 import 'package:p_a_jewerly/models/customer_payment_model.dart';
 import 'package:p_a_jewerly/widgets/loading_overlay.dart';
+import 'package:p_a_jewerly/theme/app_theme.dart';
 
 class CustomerPaymentsScreen extends StatefulWidget {
   const CustomerPaymentsScreen({super.key});
@@ -25,6 +26,7 @@ class _CustomerPaymentsScreenState extends State<CustomerPaymentsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<CustomerPaymentProvider>().fetchPayments();
       context.read<CustomerProvider>().fetchCustomers(fetchAll: true);
     });
@@ -193,7 +195,7 @@ class _CustomerPaymentsScreenState extends State<CustomerPaymentsScreen> {
               Navigator.pop(context);
               context.read<CustomerPaymentProvider>().deletePayment(id);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
             child: const Text('Delete', style: TextStyle(color: Colors.white)),
           ),
         ],
@@ -240,8 +242,8 @@ class _CustomerPaymentsScreenState extends State<CustomerPaymentsScreen> {
                 margin: const EdgeInsets.only(bottom: 12),
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: Colors.green[100],
-                    child: const Icon(Icons.attach_money, color: Colors.green),
+                    backgroundColor: AppTheme.success.withOpacity(0.2),
+                    child: Icon(Icons.attach_money, color: AppTheme.success),
                   ),
                   title: Text('Customer ID: ${payment.customerId ?? 'N/A'}'),
                   subtitle: Column(

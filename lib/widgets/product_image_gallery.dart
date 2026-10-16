@@ -479,7 +479,7 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
   Widget _buildDeleteButton(int index) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.red.withOpacity(0.9),
+        color: AppTheme.error.withOpacity(0.9),
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
@@ -537,7 +537,7 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(errorMsg),
-                backgroundColor: Colors.red,
+                backgroundColor: AppTheme.error,
               ),
             );
           }
@@ -577,7 +577,7 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
+              backgroundColor: AppTheme.error,
             ),
             child: const Text('Delete', style: TextStyle(color: Colors.white)),
           ),

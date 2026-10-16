@@ -4,6 +4,7 @@ import 'package:p_a_jewerly/providers/category_provider.dart';
 import 'package:p_a_jewerly/models/category_model.dart';
 import 'package:p_a_jewerly/widgets/base_screen.dart';
 import 'package:p_a_jewerly/widgets/loading_overlay.dart';
+import 'package:p_a_jewerly/theme/app_theme.dart';
 
 class CategoriesScreen extends StatefulWidget {
   const CategoriesScreen({super.key});
@@ -24,6 +25,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<CategoryProvider>().fetchCategories();
     });
   }
@@ -117,7 +119,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+                  Icon(Icons.error_outline, size: 64, color: AppTheme.error),
                   const SizedBox(height: 16),
                   Text(provider.error!, textAlign: TextAlign.center),
                   ElevatedButton(
@@ -151,10 +153,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                   leading: CircleAvatar(
                     backgroundColor: category.idParentCategory == 0
                         ? const Color(0xFFD4AF37).withOpacity(0.2)
-                        : Colors.blue[100],
+                        : AppTheme.lightPurple.withOpacity(0.2),
                     child: Icon(
                       category.idParentCategory == 0 ? Icons.folder : Icons.subdirectory_arrow_right,
-                      color: category.idParentCategory == 0 ? const Color(0xFFD4AF37) : Colors.blue,
+                      color: category.idParentCategory == 0 ? const Color(0xFFD4AF37) : AppTheme.lightPurple,
                     ),
                   ),
                   title: Text(category.description ?? 'Category ${category.id}'),
@@ -172,7 +174,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                       IconButton(
                         icon: const Icon(Icons.delete),
                         onPressed: () => _confirmDelete(category.id, category.description ?? ''),
-                        color: Colors.red,
+                        color: AppTheme.error,
                       ),
                     ],
                   ),

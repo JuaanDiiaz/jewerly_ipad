@@ -24,6 +24,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<CustomerProvider>().fetchCustomers();
     });
   }

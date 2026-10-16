@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:p_a_jewerly/providers/warehouse_provider.dart';
 import 'package:p_a_jewerly/widgets/base_screen.dart';
 import 'package:p_a_jewerly/widgets/loading_overlay.dart';
+import 'package:p_a_jewerly/theme/app_theme.dart';
 
 class WarehousesScreen extends StatefulWidget {
   const WarehousesScreen({super.key});
@@ -16,6 +17,7 @@ class _WarehousesScreenState extends State<WarehousesScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<WarehouseProvider>().fetchWarehouses();
     });
   }
@@ -79,7 +81,7 @@ class _WarehousesScreenState extends State<WarehousesScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+                  Icon(Icons.error_outline, size: 64, color: AppTheme.error),
                   const SizedBox(height: 16),
                   Text(provider.error!, textAlign: TextAlign.center),
                   ElevatedButton(
@@ -138,7 +140,7 @@ class _WarehouseCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surfaceColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.3), width: 1.5),
         boxShadow: [
@@ -163,12 +165,12 @@ class _WarehouseCard extends StatelessWidget {
           warehouse.name ?? 'Unnamed',
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
-        subtitle: Text('ID: ${warehouse.id}', style: TextStyle(color: Colors.grey[600])),
+        subtitle: Text('ID: ${warehouse.id}', style: TextStyle(color: AppTheme.mutedText)),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(icon: const Icon(Icons.edit_outlined), onPressed: onEdit, color: const Color(0xFF4A3266)),
-            IconButton(icon: const Icon(Icons.delete_outline), onPressed: onDelete, color: Colors.red),
+            IconButton(icon: const Icon(Icons.delete_outline), onPressed: onDelete, color: AppTheme.error),
           ],
         ),
       ),

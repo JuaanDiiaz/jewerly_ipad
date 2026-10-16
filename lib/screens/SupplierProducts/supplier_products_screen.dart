@@ -5,6 +5,7 @@ import 'package:p_a_jewerly/providers/supplier_provider.dart';
 import 'package:p_a_jewerly/providers/product_provider.dart';
 import 'package:p_a_jewerly/models/supplier_product_model.dart';
 import 'package:p_a_jewerly/widgets/loading_overlay.dart';
+import 'package:p_a_jewerly/theme/app_theme.dart';
 
 class SupplierProductsScreen extends StatefulWidget {
   const SupplierProductsScreen({super.key});
@@ -27,6 +28,7 @@ class _SupplierProductsScreenState extends State<SupplierProductsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<SupplierProductProvider>().fetchSupplierProducts();
       context.read<SupplierProvider>().fetchSuppliers();
       context.read<ProductProvider>().fetchProducts(fetchAll: true);
@@ -188,7 +190,7 @@ class _SupplierProductsScreenState extends State<SupplierProductsScreen> {
               Navigator.pop(context);
               context.read<SupplierProductProvider>().deleteSupplierProduct(id);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
             child: const Text('Delete', style: TextStyle(color: Colors.white)),
           ),
         ],

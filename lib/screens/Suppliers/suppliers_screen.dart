@@ -4,6 +4,7 @@ import 'package:p_a_jewerly/providers/supplier_provider.dart';
 import 'package:p_a_jewerly/models/supplier_model.dart';
 import 'package:p_a_jewerly/widgets/base_screen.dart';
 import 'package:p_a_jewerly/widgets/loading_overlay.dart';
+import 'package:p_a_jewerly/theme/app_theme.dart';
 
 class SuppliersScreen extends StatefulWidget {
   const SuppliersScreen({super.key});
@@ -17,6 +18,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<SupplierProvider>().fetchSuppliers();
     });
   }
@@ -78,7 +80,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+                  Icon(Icons.error_outline, size: 64, color: AppTheme.error),
                   const SizedBox(height: 16),
                   Text(provider.error!, textAlign: TextAlign.center),
                   ElevatedButton(
@@ -106,8 +108,8 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                 margin: const EdgeInsets.only(bottom: 12),
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: Colors.blue[100],
-                    child: const Icon(Icons.business, color: Colors.blue),
+                    backgroundColor: AppTheme.lightPurple.withOpacity(0.2),
+                    child: Icon(Icons.business, color: AppTheme.lightPurple),
                   ),
                   title: Text(supplier.name ?? 'Supplier ${supplier.id}'),
                   subtitle: Column(
@@ -129,7 +131,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                       IconButton(
                         icon: const Icon(Icons.delete),
                         onPressed: () => _confirmDelete(supplier.id, supplier.name ?? ''),
-                        color: Colors.red,
+                        color: AppTheme.error,
                       ),
                     ],
                   ),

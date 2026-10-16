@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:p_a_jewerly/providers/providers.dart';
 import 'package:p_a_jewerly/screens/screens.dart';
 import 'package:p_a_jewerly/theme/app_theme.dart';
 import 'package:p_a_jewerly/widgets/modern_sidebar.dart';
@@ -10,8 +12,19 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin {
   bool _isSidebarCollapsed = false;
+
+  /// Fades the content pane in on every screen swap: IndexedStack keeps all
+  /// visited screens alive, so the widget tree never changes identity when the
+  /// selection moves — the fade is what makes the swap perceptible.
+  late final AnimationController _paneFade = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 220),
+  );
+  late final CurvedAnimation _paneFadeIn =
+      CurvedAnimation(parent: _paneFade, curve: Curves.easeOut);
   // Lazy IndexedStack: the active screen keeps its state when navigating away
   // (search text, scroll position, tabs). Unvisited screens are only built
   // the first time they are selected.
@@ -157,12 +170,23 @@ class _HomeScreenState extends State<HomeScreen> {
       _selectedScreenIndex = index;
       _visitedScreens.add(index);
     });
+    _paneFade.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _paneFade.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 800;
+    // Watching the theme mode guarantees this builder re-runs (and the screen
+    // keys below change) whenever System/Light/Dark flips — even while the
+    // mode comes from the platform in System mode.
+    final themeMode = context.watch<ThemeProvider>().mode;
 
     return SafeArea(
       child: Scaffold(
@@ -211,12 +235,26 @@ class _HomeScreenState extends State<HomeScreen> {
                   borderRadius: BorderRadius.circular(16),
                   // Screens not yet visited are skipped so they don't fetch on
                   // app start; each visited page keeps its state afterwards.
-                  child: IndexedStack(
-                    index: _selectedScreenIndex,
-                    children: [
-                      for (var i = 0; i < _screens.length; i++)
-                        _visitedScreens.contains(i) ? _screens[i] : const SizedBox.shrink(),
-                    ],
+                  //
+                  // Every kept-alive screen is wrapped in a KeyedSubtree whose
+                  // key includes the theme mode: the menu screens are const
+                  // (shared instances), so without the key they'd stay in
+                  // their old palette after a System/Light/Dark switch instead
+                  // of rebuilding — the root cause of the mixed-theme bug.
+                  child: FadeTransition(
+                    opacity: _paneFadeIn,
+                    child: IndexedStack(
+                      index: _selectedScreenIndex,
+                      children: [
+                        for (var i = 0; i < _screens.length; i++)
+                          _visitedScreens.contains(i)
+                              ? KeyedSubtree(
+                                  key: ValueKey('screen-$i-${themeMode.name}'),
+                                  child: _screens[i],
+                                )
+                              : const SizedBox.shrink(),
+                      ],
+                    ),
                   ),
                 ),
               ),

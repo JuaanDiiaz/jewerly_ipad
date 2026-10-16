@@ -221,6 +221,7 @@ class _ReportsMainScreenState extends State<ReportsMainScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<WarehouseProvider>().fetchWarehouses();
       _refresh();
     });
@@ -944,6 +945,7 @@ class _ReportsMainScreenState extends State<ReportsMainScreen> {
 
   Widget _buildReportPicker() {
     final theme = Theme.of(context);
+    final chip = Theme.of(context).brightness;
     // Reports screen listens to warehouse changes so the StockLevels filter
     // dropdown stays in sync with WarehouseProvider.
     context.watch<WarehouseProvider>();
@@ -972,11 +974,21 @@ class _ReportsMainScreenState extends State<ReportsMainScreen> {
             children: [
               for (final spec in _specs)
                 ChoiceChip(
-                  avatar:
-                      Icon(spec.icon, size: 18, color: AppTheme.mediumPurple),
+                  avatar: Icon(
+                    spec.icon,
+                    size: 18,
+                    color: chip == Brightness.dark
+                        ? AppTheme.primaryGold
+                        : AppTheme.mediumPurple,
+                  ),
+                  // Gold fill reads on both surfaces; the label keeps the
+                  // theme's text color so it never washes out.
                   label: Text(spec.title),
                   selected: _spec.type == spec.type,
-                  selectedColor: AppTheme.lightGold,
+                  selectedColor: chip == Brightness.dark
+                      ? AppTheme.primaryGold
+                      : AppTheme.lightGold,
+                  labelStyle: TextStyle(color: AppTheme.textColor),
                   onSelected: (_) => _selectSpec(spec),
                 ),
             ],

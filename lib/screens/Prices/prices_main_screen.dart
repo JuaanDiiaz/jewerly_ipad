@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:p_a_jewerly/providers/price_list_detail_provider.dart';
+import 'package:p_a_jewerly/theme/app_theme.dart';
 import 'package:p_a_jewerly/widgets/loading_overlay.dart';
 
 class PricesMainScreen extends StatefulWidget {
@@ -17,6 +18,7 @@ class _PricesMainScreenState extends State<PricesMainScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<PriceListDetailProvider>().fetchPriceListDetails();
     });
   }
@@ -56,7 +58,7 @@ class _PricesMainScreenState extends State<PricesMainScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 filled: true,
-                fillColor: Colors.grey[100],
+                fillColor: AppTheme.hairline,
               ),
               onChanged: (value) => setState(() => _searchQuery = value),
             ),
@@ -74,15 +76,15 @@ class _PricesMainScreenState extends State<PricesMainScreen> {
                   );
                 }
                 if (provider.priceListDetails.isEmpty) {
-                  return const Center(
+                  return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.price_check, size: 64, color: Colors.grey),
+                        Icon(Icons.price_check, size: 64, color: AppTheme.mutedText),
                         SizedBox(height: 16),
                         Text(
                           'No price list details found',
-                          style: TextStyle(fontSize: 18, color: Colors.grey),
+                          style: TextStyle(fontSize: 18, color: AppTheme.mutedText),
                         ),
                       ],
                     ),
@@ -120,11 +122,11 @@ class _PricesMainScreenState extends State<PricesMainScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.search_off, size: 64, color: Colors.grey[500]),
+            Icon(Icons.search_off, size: 64, color: AppTheme.mutedText),
             const SizedBox(height: 16),
             Text(
               _searchQuery.isEmpty ? 'No price list details found' : 'No results for "$_searchQuery"',
-              style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 18, color: AppTheme.mutedText),
             ),
           ],
         ),
@@ -186,7 +188,7 @@ class _PricesMainScreenState extends State<PricesMainScreen> {
               Navigator.pop(context);
               context.read<PriceListDetailProvider>().deletePriceListDetail(id);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
             child: const Text('Delete', style: TextStyle(color: Colors.white)),
           ),
         ],

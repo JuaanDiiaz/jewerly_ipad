@@ -41,6 +41,7 @@ class _PurchasesMainScreenState extends State<PurchasesMainScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<PurchaseOrderProvider>().fetchOrders();
       context.read<SupplierProvider>().fetchSuppliers();
       context.read<ProductProvider>().fetchProducts(fetchAll: true);
@@ -73,10 +74,10 @@ class _PurchasesMainScreenState extends State<PurchasesMainScreen> {
       case 'completed':
         return AppTheme.success;
       case 'pending':
-        return Colors.orange;
+        return AppTheme.warning;
       case 'in transit':
       case 'in_transit':
-        return Colors.blue;
+        return AppTheme.lightPurple;
       case 'cancelled':
         return AppTheme.error;
       default:
@@ -766,14 +767,14 @@ class _CreateOrderSheetState extends State<_CreateOrderSheet> {
                           padding: const EdgeInsets.all(12),
                           margin: const EdgeInsets.only(bottom: 16),
                           decoration: BoxDecoration(
-                            color: supplierProducts.isEmpty ? Colors.orange.withOpacity(0.1) : AppTheme.success.withOpacity(0.1),
+                            color: supplierProducts.isEmpty ? AppTheme.warning.withOpacity(0.1) : AppTheme.success.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Row(
                             children: [
                               Icon(
                                 supplierProducts.isEmpty ? Icons.warning : Icons.check_circle,
-                                color: supplierProducts.isEmpty ? Colors.orange : AppTheme.success,
+                                color: supplierProducts.isEmpty ? AppTheme.warning : AppTheme.success,
                               ),
                               const SizedBox(width: 12),
                               Text(
@@ -781,7 +782,7 @@ class _CreateOrderSheetState extends State<_CreateOrderSheet> {
                                     ? 'No products linked to this supplier. Add products first.'
                                     : '${supplierProducts.length} products available for this supplier',
                                 style: TextStyle(
-                                  color: supplierProducts.isEmpty ? Colors.orange : AppTheme.success,
+                                  color: supplierProducts.isEmpty ? AppTheme.warning : AppTheme.success,
                                 ),
                               ),
                             ],
@@ -1513,6 +1514,7 @@ class _OrderDetailsSheetState extends State<_OrderDetailsSheet> {
     // Order details are only in provider state if something else fetched them
     // (printing). Fetch here so opening the sheet directly shows the items.
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<PurchaseOrderProvider>().fetchOrderDetails(widget.order.id);
     });
   }
@@ -1822,10 +1824,10 @@ class _OrderDetailsSheetState extends State<_OrderDetailsSheet> {
       case 'completed':
         return AppTheme.success;
       case 'pending':
-        return Colors.orange;
+        return AppTheme.warning;
       case 'in transit':
       case 'in_transit':
-        return Colors.blue;
+        return AppTheme.lightPurple;
       case 'cancelled':
         return AppTheme.error;
       default:
@@ -1855,6 +1857,7 @@ class _OrderDetailsSheetState extends State<_OrderDetailsSheet> {
     Navigator.pop(context);
     // Re-open to print
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       final purchasesState = context.findAncestorStateOfType<_PurchasesMainScreenState>();
       if (purchasesState != null) {
         purchasesState._generatePdf(widget.order);

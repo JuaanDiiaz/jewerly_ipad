@@ -35,6 +35,7 @@ class _SaleScreenState extends State<SaleScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<ProductProvider>().fetchProducts(fetchAll: true);
       context.read<CustomerProvider>().fetchCustomers(fetchAll: true);
       context.read<InventoryProvider>().fetchInventory();
@@ -144,9 +145,9 @@ class _SaleScreenState extends State<SaleScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         if (productPrices.isEmpty)
-                          const Text(
+                          Text(
                             'No prices available for this product',
-                            style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+                            style: TextStyle(color: AppTheme.mutedText, fontStyle: FontStyle.italic),
                           )
                         else
                           ...productPrices.map((priceDetail) {
@@ -160,7 +161,7 @@ class _SaleScreenState extends State<SaleScreen> {
                                 ),
                                 subtitle: Text(priceList.description),
                                 trailing: IconButton(
-                                  icon: const Icon(Icons.add_shopping_cart, color: Colors.green),
+                                  icon: const Icon(Icons.add_shopping_cart, color: AppTheme.success),
                                   onPressed: () {
                                     Navigator.pop(context);
                                     _addToCart(
@@ -205,11 +206,11 @@ class _SaleScreenState extends State<SaleScreen> {
       return Container(
         height: 200,
         decoration: BoxDecoration(
-          color: Colors.amber[100],
+          color: AppTheme.hairline,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Center(
-          child: Icon(Icons.shopping_bag, size: 80, color: Colors.amber[800]),
+          child: Icon(Icons.shopping_bag, size: 80, color: AppTheme.warning),
         ),
       );
     }
@@ -225,7 +226,7 @@ class _SaleScreenState extends State<SaleScreen> {
         children: [
           Text(
             label,
-            style: const TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.w500),
+            style: TextStyle(color: AppTheme.mutedText, fontSize: 14, fontWeight: FontWeight.w500),
           ),
           Flexible(
             child: Text(
@@ -244,7 +245,7 @@ class _SaleScreenState extends State<SaleScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Cart is empty. Add items before checkout.'),
-          backgroundColor: Colors.orange,
+          backgroundColor: AppTheme.warning,
         ),
       );
       return;
@@ -292,7 +293,7 @@ class _SaleScreenState extends State<SaleScreen> {
                                   style: const TextStyle(fontWeight: FontWeight.bold),
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.remove_shopping_cart, color: Colors.red),
+                                  icon: const Icon(Icons.remove_shopping_cart, color: AppTheme.error),
                                   onPressed: () => salesProvider.removeFromCart(item.productId),
                                 ),
                               ],
@@ -309,7 +310,7 @@ class _SaleScreenState extends State<SaleScreen> {
                             ),
                             Text(
                               '${formatCurrency(salesProvider.cartTotal)}',
-                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.success),
                             ),
                           ],
                         ),
@@ -322,7 +323,7 @@ class _SaleScreenState extends State<SaleScreen> {
                                 onPressed: provider.isLoading ? null : _processCheckout,
                                 style: ElevatedButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(vertical: 16),
-                                  backgroundColor: Colors.green,
+                                  backgroundColor: AppTheme.success,
                                   foregroundColor: Colors.white,
                                 ),
                                 child: provider.isLoading
@@ -360,7 +361,7 @@ class _SaleScreenState extends State<SaleScreen> {
           Flexible(
             child: Text(
               '$label:',
-              style: const TextStyle(fontSize: 14, color: Colors.grey),
+              style: TextStyle(fontSize: 14, color: AppTheme.mutedText),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -496,7 +497,7 @@ class _SaleScreenState extends State<SaleScreen> {
                           width: screenWidth * 0.35,
                           constraints: const BoxConstraints(minWidth: 300, maxWidth: 400),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AppTheme.surfaceColor,
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withOpacity(0.08),
@@ -671,7 +672,7 @@ class _SaleScreenState extends State<SaleScreen> {
                 Icon(
                   noWarehouse ? Icons.warehouse_outlined : Icons.inventory_2_outlined,
                   size: 64,
-                  color: Colors.grey[400],
+                  color: AppTheme.mutedText,
                 ),
                 const SizedBox(height: 16),
                 Text(
@@ -680,7 +681,7 @@ class _SaleScreenState extends State<SaleScreen> {
                       : filteredProducts.isEmpty
                           ? 'No products found for "$_searchQuery"'
                           : 'No products in stock in this warehouse',
-                  style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                  style: TextStyle(fontSize: 16, color: AppTheme.mutedText),
                 ),
               ],
             ),
@@ -829,16 +830,16 @@ class _SaleScreenState extends State<SaleScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.shopping_basket_outlined, size: 64, color: Colors.grey[300]),
+          Icon(Icons.shopping_basket_outlined, size: 64, color: AppTheme.mutedText),
           const SizedBox(height: 16),
           Text(
             'Cart is empty',
-            style: TextStyle(color: Colors.grey[500], fontSize: 16),
+            style: TextStyle(color: AppTheme.mutedText, fontSize: 16),
           ),
           const SizedBox(height: 8),
           Text(
             'Add products from the grid',
-            style: TextStyle(color: Colors.grey[400], fontSize: 13),
+            style: TextStyle(color: AppTheme.mutedText, fontSize: 13),
           ),
         ],
       ),
@@ -851,7 +852,7 @@ class _SaleScreenState extends State<SaleScreen> {
       decoration: BoxDecoration(
         color: AppTheme.background,
         border: Border(
-          top: BorderSide(color: Colors.grey.withOpacity(0.2)),
+          top: BorderSide(color: AppTheme.hairline),
         ),
       ),
       child: Column(
@@ -860,7 +861,7 @@ class _SaleScreenState extends State<SaleScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Subtotal:', style: TextStyle(color: Colors.grey, fontSize: 13)),
+              Text('Subtotal:', style: TextStyle(color: AppTheme.mutedText, fontSize: 13)),
               Text('${formatCurrency(salesProvider.cartTotal)}', style: const TextStyle(fontWeight: FontWeight.bold)),
             ],
           ),
@@ -941,7 +942,7 @@ class _SaleScreenState extends State<SaleScreen> {
             child: ElevatedButton(
               onPressed: _showSummary,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
+                backgroundColor: AppTheme.success,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -968,7 +969,7 @@ class _SaleScreenState extends State<SaleScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surfaceColor,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
@@ -1025,11 +1026,11 @@ class _SaleScreenState extends State<SaleScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey[400]),
+          Icon(Icons.inventory_2_outlined, size: 64, color: AppTheme.mutedText),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'No products available',
-            style: TextStyle(fontSize: 18, color: Colors.grey),
+            style: TextStyle(fontSize: 18, color: AppTheme.mutedText),
           ),
         ],
       ),
@@ -1041,9 +1042,9 @@ class _SaleScreenState extends State<SaleScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+          Icon(Icons.error_outline, size: 64, color: AppTheme.error),
           const SizedBox(height: 16),
-          Text(message, style: const TextStyle(color: Colors.grey)),
+          Text(message, style: TextStyle(color: AppTheme.mutedText)),
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: onRetry,
@@ -1314,11 +1315,11 @@ class _ProductCardState extends State<_ProductCard> {
                     if (widget.inventory?.weight != null)
                       Row(
                         children: [
-                          Icon(Icons.scale, size: 12, color: Colors.grey[600]),
+                          Icon(Icons.scale, size: 12, color: AppTheme.mutedText),
                           const SizedBox(width: 4),
                           Text(
                             '${widget.inventory!.weight} g',
-                            style: TextStyle(color: Colors.grey[600], fontSize: 11),
+                            style: TextStyle(color: AppTheme.mutedText, fontSize: 11),
                           ),
                         ],
                       ),
@@ -1326,12 +1327,12 @@ class _ProductCardState extends State<_ProductCard> {
                       const SizedBox(height: 2),
                       Row(
                         children: [
-                          Icon(Icons.location_on, size: 12, color: Colors.grey[600]),
+                          Icon(Icons.location_on, size: 12, color: AppTheme.mutedText),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
                               widget.inventory!.location!,
-                              style: TextStyle(color: Colors.grey[600], fontSize: 10),
+                              style: TextStyle(color: AppTheme.mutedText, fontSize: 10),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -1405,7 +1406,7 @@ class _CartItemTile extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     '${formatCurrency(item.unitPrice)} each',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    style: TextStyle(color: AppTheme.mutedText, fontSize: 12),
                   ),
                   // Stock feedback: shows the ceiling and flags when the cart
                   // is at (or over) it.
@@ -1413,7 +1414,7 @@ class _CartItemTile extends StatelessWidget {
                     Text(
                       '${item.maxQuantity} available',
                       style: TextStyle(
-                        color: item.quantity >= item.maxQuantity ? AppTheme.error : Colors.grey[600],
+                        color: item.quantity >= item.maxQuantity ? AppTheme.error : AppTheme.mutedText,
                         fontSize: 11,
                         fontWeight: item.quantity >= item.maxQuantity ? FontWeight.w600 : FontWeight.w400,
                       ),
@@ -1487,7 +1488,7 @@ class _CartItemTile extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                  icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.error),
                   onPressed: onRemove,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(minWidth: 32, minHeight: 32),

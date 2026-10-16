@@ -30,6 +30,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
       context.read<SalesProvider>().fetchSales(fetchAll: true);
       context.read<CustomerProvider>().fetchCustomers(fetchAll: true);
       context.read<CustomerPaymentProvider>().fetchPayments();
@@ -273,7 +274,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                   borderSide: BorderSide.none,
                 ),
                 filled: true,
-                fillColor: Colors.grey[100],
+                fillColor: AppTheme.raisedColor,
               ),
             ),
           ),

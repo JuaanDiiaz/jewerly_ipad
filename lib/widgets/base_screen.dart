@@ -49,14 +49,14 @@ class BaseScreen extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+              Icon(Icons.error_outline, size: 64, color: AppTheme.error),
               const SizedBox(height: 16),
               Text(
                 'Oops! Something went wrong',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red[700]),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.error),
               ),
               const SizedBox(height: 8),
-              Text(error!, style: const TextStyle(color: Colors.grey), textAlign: TextAlign.center),
+              Text(error!, style: TextStyle(color: AppTheme.mutedText), textAlign: TextAlign.center),
               if (onRetry != null) ...[
                 const SizedBox(height: 16),
                 ElevatedButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh), label: const Text('Retry')),

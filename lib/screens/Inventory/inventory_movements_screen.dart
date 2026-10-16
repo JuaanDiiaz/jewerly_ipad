@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:p_a_jewerly/providers/inventory_provider.dart';
 import 'package:p_a_jewerly/providers/product_provider.dart';
 import 'package:p_a_jewerly/providers/warehouse_provider.dart';
+import 'package:p_a_jewerly/theme/app_theme.dart';
 import 'package:p_a_jewerly/widgets/loading_overlay.dart';
 import 'package:p_a_jewerly/widgets/paged_list_view.dart';
 
@@ -23,6 +24,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<InventoryProvider>().fetchMovements();
       context.read<ProductProvider>().fetchProducts();
       context.read<WarehouseProvider>().fetchWarehouses();
@@ -77,18 +79,18 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
             );
           }
           if (provider.movements.isEmpty) {
-            return const Center(
+            return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.swap_horiz, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text('No inventory movements', style: TextStyle(fontSize: 18, color: Colors.grey)),
-                  SizedBox(height: 8),
-                  Text('Movements are created when:', style: TextStyle(fontSize: 14, color: Colors.grey)),
-                  Text('• Sales are completed (OUT)', style: TextStyle(fontSize: 14, color: Colors.grey)),
-                  Text('• Purchases are received (IN)', style: TextStyle(fontSize: 14, color: Colors.grey)),
-                  Text('• Quantity adjustments in Inventory', style: TextStyle(fontSize: 14, color: Colors.grey)),
+                  Icon(Icons.swap_horiz, size: 64, color: AppTheme.mutedText),
+                  const SizedBox(height: 16),
+                  Text('No inventory movements', style: TextStyle(fontSize: 18, color: AppTheme.mutedText)),
+                  const SizedBox(height: 8),
+                  Text('Movements are created when:', style: TextStyle(fontSize: 14, color: AppTheme.mutedText)),
+                  Text('• Sales are completed (OUT)', style: TextStyle(fontSize: 14, color: AppTheme.mutedText)),
+                  Text('• Purchases are received (IN)', style: TextStyle(fontSize: 14, color: AppTheme.mutedText)),
+                  Text('• Quantity adjustments in Inventory', style: TextStyle(fontSize: 14, color: AppTheme.mutedText)),
                 ],
               ),
             );
@@ -120,16 +122,16 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
                       label: const Text('IN'),
                       selected: _filterType == 'IN',
                       onSelected: (selected) => setState(() => _filterType = 'IN'),
-                      backgroundColor: Colors.green[100],
-                      selectedColor: Colors.green[300],
+                      backgroundColor: AppTheme.success.withOpacity(0.12),
+                      selectedColor: AppTheme.success.withOpacity(0.3),
                     ),
                     const SizedBox(width: 8),
                     FilterChip(
                       label: const Text('OUT'),
                       selected: _filterType == 'OUT',
                       onSelected: (selected) => setState(() => _filterType = 'OUT'),
-                      backgroundColor: Colors.red[100],
-                      selectedColor: Colors.red[300],
+                      backgroundColor: AppTheme.error.withOpacity(0.12),
+                      selectedColor: AppTheme.error.withOpacity(0.3),
                     ),
                     if (_selectedWarehouseId != null) ...[
                       const SizedBox(width: 8),
@@ -164,10 +166,10 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
                       elevation: 3,
                       child: ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: isIN ? Colors.green[100] : Colors.red[100],
+                          backgroundColor: isIN ? AppTheme.success.withOpacity(0.12) : AppTheme.error.withOpacity(0.12),
                           child: Icon(
                             isIN ? Icons.add : Icons.remove,
-                            color: isIN ? Colors.green : Colors.red,
+                            color: isIN ? AppTheme.success : AppTheme.error,
                           ),
                         ),
                         title: Text(
@@ -193,26 +195,26 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: isIN ? Colors.green : Colors.red,
+                                color: isIN ? AppTheme.success : AppTheme.error,
                               ),
                             ),
                             if (movement.salesOrderId != null && movement.salesOrderId! > 0)
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: Colors.blue[100],
+                                  color: AppTheme.lightPurple.withOpacity(0.12),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
-                                child: const Text('Sale', style: TextStyle(fontSize: 10)),
+                                child: const Text('Sale', style: TextStyle(fontSize: 10, color: AppTheme.lightPurple)),
                               ),
                             if (movement.purchaseOrderId != null && movement.purchaseOrderId! > 0)
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: Colors.orange[100],
+                                  color: AppTheme.warning.withOpacity(0.12),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
-                                child: const Text('Purchase', style: TextStyle(fontSize: 10)),
+                                child: const Text('Purchase', style: TextStyle(fontSize: 10, color: AppTheme.warning)),
                               ),
                           ],
                         ),

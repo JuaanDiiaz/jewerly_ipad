@@ -29,6 +29,7 @@ class _InventoryMainScreenState extends State<InventoryMainScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<InventoryProvider>().fetchInventory();
       context.read<WarehouseProvider>().fetchWarehouses();
       context.read<ProductProvider>().fetchProducts(fetchAll: true);

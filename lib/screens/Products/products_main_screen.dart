@@ -33,6 +33,7 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<ProductProvider>().fetchProducts();
       context.read<ProductImageProvider>().fetchAllImages();
     });
@@ -167,7 +168,7 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
                                           child: Container(
                                             padding: const EdgeInsets.all(4),
                                             decoration: const BoxDecoration(
-                                              color: Colors.red,
+                                              color: AppTheme.error,
                                               shape: BoxShape.circle,
                                             ),
                                             child: const Icon(Icons.close, size: 16, color: Colors.white),

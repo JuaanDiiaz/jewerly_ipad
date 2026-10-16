@@ -76,7 +76,7 @@ class AppErrorWidget extends StatelessWidget {
             Icon(
               Icons.error_outline,
               size: 64,
-              color: Colors.red[300],
+              color: AppTheme.error,
             ),
             const SizedBox(height: 16),
             Text(
@@ -84,13 +84,13 @@ class AppErrorWidget extends StatelessWidget {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Colors.red[700],
+                color: AppTheme.error,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               message,
-              style: const TextStyle(color: Colors.grey),
+              style: TextStyle(color: AppTheme.mutedText),
               textAlign: TextAlign.center,
             ),
             if (onRetry != null) ...[
@@ -126,26 +126,26 @@ class ErrorBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.red.withOpacity(0.12),
-        border: Border(bottom: BorderSide(color: Colors.red.withOpacity(0.4))),
+        color: AppTheme.error.withOpacity(0.12),
+        border: Border(bottom: BorderSide(color: AppTheme.error.withOpacity(0.4))),
       ),
       child: Row(
         children: [
-          Icon(Icons.warning_amber_outlined, size: 20, color: Colors.red[700]),
+          Icon(Icons.warning_amber_outlined, size: 20, color: AppTheme.error),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               message,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 13, color: Colors.red[700]),
+              style: TextStyle(fontSize: 13, color: AppTheme.error),
             ),
           ),
           if (onRetry != null)
             TextButton.icon(
               onPressed: onRetry,
-              icon: Icon(Icons.refresh, size: 16, color: Colors.red[700]),
-              label: Text('Retry', style: TextStyle(fontSize: 13, color: Colors.red[700])),
+              icon: Icon(Icons.refresh, size: 16, color: AppTheme.error),
+              label: Text('Retry', style: TextStyle(fontSize: 13, color: AppTheme.error)),
             ),
         ],
       ),
@@ -167,7 +167,7 @@ SnackBar errorSnackBar(String message) {
         ),
       ],
     ),
-    backgroundColor: Colors.red[700],
+    backgroundColor: AppTheme.error,
     behavior: SnackBarBehavior.floating,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(10),
@@ -189,7 +189,7 @@ SnackBar successSnackBar(String message) {
         ),
       ],
     ),
-    backgroundColor: Colors.green[700],
+    backgroundColor: AppTheme.success,
     behavior: SnackBarBehavior.floating,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(10),
@@ -211,7 +211,7 @@ SnackBar warningSnackBar(String message) {
         ),
       ],
     ),
-    backgroundColor: Colors.orange[700],
+    backgroundColor: AppTheme.warning,
     behavior: SnackBarBehavior.floating,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(10),

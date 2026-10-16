@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:p_a_jewerly/theme/app_theme.dart';
 
 class ProductImage extends StatelessWidget {
   final String? url;
@@ -30,14 +31,14 @@ class ProductImage extends StatelessWidget {
   }
 
   BoxDecoration _buildBoxDecoration() => BoxDecoration(
-        color: Colors.grey[200],
+        color: AppTheme.hairline,
         borderRadius: BorderRadius.circular(8),
       );
 
   Widget getImage(String? picture) {
     if (picture == null || picture.isEmpty) {
       return Container(
-        color: Colors.grey[200],
+        color: AppTheme.hairline,
         child: const Icon(
           Icons.inventory_2_outlined,
           size: 48,
@@ -53,14 +54,14 @@ class ProductImage extends StatelessWidget {
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
           return Container(
-            color: Colors.grey[200],
+            color: AppTheme.hairline,
             child: const Center(
               child: CircularProgressIndicator(),
             ),
           );
         },
         errorBuilder: (_, __, ___) => Container(
-          color: Colors.grey[200],
+          color: AppTheme.hairline,
           child: const Icon(Icons.broken_image, size: 48, color: Colors.grey),
         ),
       );
@@ -72,19 +73,19 @@ class ProductImage extends StatelessWidget {
           File(picture),
           fit: fit,
           errorBuilder: (_, __, ___) => Container(
-            color: Colors.grey[200],
+            color: AppTheme.hairline,
             child: const Icon(Icons.broken_image, size: 48, color: Colors.grey),
           ),
         );
       } else {
         return Container(
-          color: Colors.grey[200],
+          color: AppTheme.hairline,
           child: const Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey),
         );
       }
     } catch (e) {
       return Container(
-        color: Colors.grey[200],
+        color: AppTheme.hairline,
         child: const Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey),
       );
     }

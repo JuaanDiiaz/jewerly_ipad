@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:p_a_jewerly/providers/price_list_detail_provider.dart';
 import 'package:p_a_jewerly/providers/product_provider.dart';
 import 'package:p_a_jewerly/models/price_list_detail_model.dart';
+import 'package:p_a_jewerly/theme/app_theme.dart';
 import 'package:p_a_jewerly/widgets/loading_overlay.dart';
 
 class PriceListDetailsScreen extends StatefulWidget {
@@ -25,6 +26,7 @@ class _PriceListDetailsScreenState extends State<PriceListDetailsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<PriceListDetailProvider>().fetchPriceListDetails();
       context.read<ProductProvider>().fetchProducts(fetchAll: true);
     });
@@ -189,7 +191,7 @@ class _PriceListDetailsScreenState extends State<PriceListDetailsScreen> {
               Navigator.pop(context);
               context.read<PriceListDetailProvider>().deletePriceListDetail(id);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
             child: const Text('Delete', style: TextStyle(color: Colors.white)),
           ),
         ],
@@ -216,13 +218,13 @@ class _PriceListDetailsScreenState extends State<PriceListDetailsScreen> {
             );
           }
           if (provider.priceListDetails.isEmpty) {
-            return const Center(
+            return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.price_check_outlined, size: 64, color: Colors.grey),
+                  Icon(Icons.price_check_outlined, size: 64, color: AppTheme.mutedText),
                   SizedBox(height: 16),
-                  Text('No price list details', style: TextStyle(fontSize: 18, color: Colors.grey)),
+                  Text('No price list details', style: TextStyle(fontSize: 18, color: AppTheme.mutedText)),
                 ],
               ),
             );
@@ -244,7 +246,7 @@ class _PriceListDetailsScreenState extends State<PriceListDetailsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Price List ID: ${detail.priceListId}'),
-                      Text('Price: \$${detail.price ?? 0}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                      Text('Price: \$${detail.price ?? 0}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.success)),
                       if (detail.validFrom != null) Text('Valid from: ${detail.validFrom!.toString().split(' ')[0]}'),
                       if (detail.validTo != null) Text('Valid to: ${detail.validTo!.toString().split(' ')[0]}'),
                     ],

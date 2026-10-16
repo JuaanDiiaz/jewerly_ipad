@@ -32,6 +32,7 @@ class _SalesListScreenState extends State<SalesListScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
       context.read<SalesProvider>().fetchSales();
       context.read<CustomerProvider>().fetchCustomers(fetchAll: true);
       context.read<CustomerPaymentProvider>().fetchPayments();
@@ -297,7 +298,7 @@ class _SalesListScreenState extends State<SalesListScreen> {
                   borderSide: BorderSide.none,
                 ),
                 filled: true,
-                fillColor: Colors.grey[100],
+                fillColor: AppTheme.hairline,
               ),
             ),
           ),

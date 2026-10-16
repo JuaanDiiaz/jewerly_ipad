@@ -122,6 +122,7 @@ class _PhysicalCountMainScreenState extends State<PhysicalCountMainScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<WarehouseProvider>().fetchWarehouses();
       context.read<ProductProvider>().fetchProducts(fetchAll: true);
       context.read<InventoryProvider>().fetchInventory();
@@ -432,7 +433,7 @@ class _PhysicalCountMainScreenState extends State<PhysicalCountMainScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
             onPressed: () {
               Navigator.pop(context);
               setState(() {
@@ -579,7 +580,7 @@ class _PhysicalCountMainScreenState extends State<PhysicalCountMainScreen> {
             child: const Text('Continue'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
             onPressed: () async {
               Navigator.pop(context);
               setState(() {
@@ -637,7 +638,7 @@ class _PhysicalCountMainScreenState extends State<PhysicalCountMainScreen> {
                           padding: const EdgeInsets.all(12),
                           child: Column(
                             children: [
-                              const Text('System', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                              Text('System', style: TextStyle(fontSize: 12, color: AppTheme.mutedText)),
                               const SizedBox(height: 4),
                               Text(
                                 item.systemQuantity.toString(),
@@ -656,7 +657,7 @@ class _PhysicalCountMainScreenState extends State<PhysicalCountMainScreen> {
                           padding: const EdgeInsets.all(12),
                           child: Column(
                             children: [
-                              const Text('Physical', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                              Text('Physical', style: TextStyle(fontSize: 12, color: AppTheme.mutedText)),
                               const SizedBox(height: 4),
                               TextFormField(
                                 controller: countController,
@@ -682,8 +683,8 @@ class _PhysicalCountMainScreenState extends State<PhysicalCountMainScreen> {
                 if (countController.text.isNotEmpty)
                   Card(
                     color: variance > 0
-                        ? Colors.green[50]
-                        : (variance < 0 ? Colors.red[50] : Colors.grey[100]),
+                        ? AppTheme.success.withOpacity(0.12)
+                        : (variance < 0 ? AppTheme.error.withOpacity(0.12) : AppTheme.hairline),
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: Row(
@@ -694,8 +695,8 @@ class _PhysicalCountMainScreenState extends State<PhysicalCountMainScreen> {
                                 ? Icons.arrow_upward
                                 : (variance < 0 ? Icons.arrow_downward : Icons.check),
                             color: variance > 0
-                                ? Colors.green
-                                : (variance < 0 ? Colors.red : Colors.grey),
+                                ? AppTheme.success
+                                : (variance < 0 ? AppTheme.error : AppTheme.mutedText),
                           ),
                           const SizedBox(width: 8),
                           Text(
@@ -704,8 +705,8 @@ class _PhysicalCountMainScreenState extends State<PhysicalCountMainScreen> {
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                               color: variance > 0
-                                  ? Colors.green
-                                  : (variance < 0 ? Colors.red : Colors.grey),
+                                  ? AppTheme.success
+                                  : (variance < 0 ? AppTheme.error : AppTheme.mutedText),
                             ),
                           ),
                         ],
@@ -739,7 +740,7 @@ class _PhysicalCountMainScreenState extends State<PhysicalCountMainScreen> {
                     Navigator.pop(context);
                     _deleteItem(item);
                   },
-                  child: const Text('Remove', style: TextStyle(color: Colors.red)),
+                  child: const Text('Remove', style: TextStyle(color: AppTheme.error)),
                 ),
               TextButton(
                 onPressed: () => Navigator.pop(context),
@@ -817,7 +818,7 @@ class _PhysicalCountMainScreenState extends State<PhysicalCountMainScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.grey[100],
+                  color: AppTheme.hairline,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: SelectableText(
@@ -921,7 +922,7 @@ class _PhysicalCountMainScreenState extends State<PhysicalCountMainScreen> {
           const SizedBox(height: 12),
           Text(
             'Verify physical stock matches system records',
-            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+            style: TextStyle(fontSize: 16, color: AppTheme.mutedText),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 40),
@@ -943,11 +944,11 @@ class _PhysicalCountMainScreenState extends State<PhysicalCountMainScreen> {
             const SizedBox(height: 40),
             Row(
               children: [
-                const Icon(Icons.history, color: Colors.grey),
+                Icon(Icons.history, color: AppTheme.mutedText),
                 const SizedBox(width: 8),
                 Text(
                   'In Progress (${_savedSessions.length})',
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
+                  style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.mutedText),
                 ),
               ],
             ),
@@ -1034,11 +1035,11 @@ class _PhysicalCountMainScreenState extends State<PhysicalCountMainScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.inbox, size: 64, color: Colors.grey[300]),
+                      Icon(Icons.inbox, size: 64, color: AppTheme.mutedText),
                       const SizedBox(height: 16),
                       Text(
                         'No items in this count',
-                        style: TextStyle(color: Colors.grey[500]),
+                        style: TextStyle(color: AppTheme.mutedText),
                       ),
                     ],
                   ),
@@ -1053,7 +1054,7 @@ class _PhysicalCountMainScreenState extends State<PhysicalCountMainScreen> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                         side: item.counted
-                            ? BorderSide(color: Colors.green.withOpacity(0.3))
+                            ? BorderSide(color: AppTheme.success.withOpacity(0.3))
                             : BorderSide.none,
                       ),
                       child: InkWell(
@@ -1069,9 +1070,9 @@ class _PhysicalCountMainScreenState extends State<PhysicalCountMainScreen> {
                                 decoration: BoxDecoration(
                                   color: item.counted
                                       ? (item.variance != null && item.variance! != 0
-                                          ? Colors.orange[100]
-                                          : Colors.green[100])
-                                      : Colors.grey[100],
+                                          ? AppTheme.warning.withOpacity(0.12)
+                                          : AppTheme.success.withOpacity(0.12))
+                                      : AppTheme.hairline,
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Icon(
@@ -1082,9 +1083,9 @@ class _PhysicalCountMainScreenState extends State<PhysicalCountMainScreen> {
                                       : Icons.edit,
                                   color: item.counted
                                       ? (item.variance != null && item.variance! != 0
-                                          ? Colors.orange
-                                          : Colors.green)
-                                      : Colors.grey,
+                                          ? AppTheme.warning
+                                          : AppTheme.success)
+                                      : AppTheme.mutedText,
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -1124,18 +1125,18 @@ class _PhysicalCountMainScreenState extends State<PhysicalCountMainScreen> {
                                                 ? Icons.warning
                                                 : Icons.check,
                                             color: item.variance != null && item.variance! != 0
-                                                ? Colors.orange
-                                                : Colors.green,
+                                                ? AppTheme.warning
+                                                : AppTheme.success,
                                           )
                                         else
-                                          _buildInfoChip('Not counted', Icons.hourglass_empty, color: Colors.grey),
+                                          _buildInfoChip('Not counted', Icons.hourglass_empty, color: AppTheme.mutedText),
                                       ],
                                     ),
                                     if (item.notes != null && item.notes!.isNotEmpty) ...[
                                       const SizedBox(height: 4),
                                       Text(
                                         item.notes!,
-                                        style: TextStyle(fontSize: 11, color: Colors.grey[600], fontStyle: FontStyle.italic),
+                                        style: TextStyle(fontSize: 11, color: AppTheme.mutedText, fontStyle: FontStyle.italic),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -1143,7 +1144,7 @@ class _PhysicalCountMainScreenState extends State<PhysicalCountMainScreen> {
                                   ],
                                 ),
                               ),
-                              const Icon(Icons.chevron_right, color: Colors.grey),
+                              Icon(Icons.chevron_right, color: AppTheme.mutedText),
                             ],
                           ),
                         ),
@@ -1177,15 +1178,15 @@ class _PhysicalCountMainScreenState extends State<PhysicalCountMainScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: (color ?? Colors.grey).withOpacity(0.1),
+        color: (color ?? AppTheme.mutedText).withOpacity(0.1),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: color ?? Colors.grey),
+          Icon(icon, size: 12, color: color ?? AppTheme.mutedText),
           const SizedBox(width: 4),
-          Text(text, style: TextStyle(fontSize: 11, color: color ?? Colors.grey)),
+          Text(text, style: TextStyle(fontSize: 11, color: color ?? AppTheme.mutedText)),
         ],
       ),
     );
