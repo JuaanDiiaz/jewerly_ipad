@@ -69,12 +69,17 @@ Base URL resolves through `Environment.baseUrl` (lib/config/environment.dart):
 | Product Images | `/api/ProductImage` | GET, POST, DELETE/{id} |
 | Payment Methods | `/api/PaymentMethod` | GET, POST, PUT/{id}, DELETE/{id} |
 | Sales Tax | `/api/SalesTaxDetail` | GET, POST, PUT/{id}, DELETE/{id} |
+| Tax Rates | `/api/TaxRate` | GET, POST, PUT/{id}, DELETE/{id} |
 
 **Action endpoints:** `/api/SalesOrderHeader/CompleteSale` (checkout, creates header + details in one call, see `SalesProvider.checkout`) and `/api/PurchaseOrderHeader/{orderId}/Complete` (see `PurchaseOrderProvider`).
+
+Backend repo: `C:\Users\Juan\source\repos\J&A_Jewelry` (sln `J&A_Jewelry.sln`, namespace `J_A_Jewelry`); secrets in `dotnet user-secrets`, dev DB is local MySQL. Never `dotnet ef database update` against production — see that repo's `DATABASE.md` runbook.
 
 ## Checkout Flow
 
 Creating a sale is a **single POST** to `/api/SalesOrderHeader/CompleteSale` with `{customerId, paymentMethodId, salespersonName, warehouseId, saleDate (yyyy-MM-dd), items: [{productId, quantity, unitPrice}]}`. The legacy two-step (POST header, then POST each detail to `/api/SalesOrderDetail`) is no longer used by checkout.
+
+**Tax (IVA-exclusive):** posted prices are pre-tax. The server resolves each item's active `TaxRate` through its ProductCategory link (products with no category get the rate whose `categoryId` is null), rounds line tax away-from-zero to 2 decimals, and records `subtotal`/`taxAmount`/`total` on the header plus one `SalesTaxDetail` row per rate. The client-side preview lives in `lib/utils/sales_tax.dart` (`computeCartTax`) — keep it mirroring the backend.
 
 ## Provider Conventions
 
