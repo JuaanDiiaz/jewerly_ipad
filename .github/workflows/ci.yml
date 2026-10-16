@@ -16,6 +16,9 @@ jobs:
         with:
           channel: stable
           flutter-version: 3.41.7
+      # .env is gitignored by policy but declared as a pubspec asset — the
+      # checkout needs *a* .env file or even the asset bundle step fails.
+      - run: cp .env.example .env
       - run: flutter pub get
       # Errors turn the build red; pre-existing infos/warnings in legacy
       # screens must not (tighten later once the lint debt is paid down).
