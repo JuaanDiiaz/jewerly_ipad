@@ -1,0 +1,90 @@
+# Multi-platform release builds. Triggers:
+#   - workflow_dispatch: manual builds from the Actions tab
+#   - pushing a tag v* : full builds + a GitHub Release with the artifacts
+# iOS is built --no-codesign (no signing secrets available). The .app is
+# valid for later signing (TestFlight/AltStore-style) but cannot install
+# directly on a device.
+name: release-builds
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  android:
+    name: Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.41.7
+      - run: cp .env.example .env
+      - run: flutter pub get
+      - run: flutter build apk --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: build/app/outputs/flutter-apk/app-release.apk
+          generate_release_notes: true
+
+  windows:
+    name: Windows build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.41.7
+      - name: create .env from example
+        shell: bash
+        run: cp .env.example .env
+      - run: flutter pub get
+      - run: flutter build windows --release
+      - name: zip release folder
+        shell: pwsh
+        run: |
+          Compress-Archive -Force -Path 'build\windows\x64\runner\Release\*' -DestinationPath 'windows-build.zip'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: windows-build.zip
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: windows-build.zip
+          generate_release_notes: true
+
+  ios:
+    name: iOS (unsigned)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.41.7
+      - run: cp .env.example .env
+      - run: flutter pub get
+      # Signing needs an Apple Developer cert (XCODE_SIGNING / App Store
+      # secrets) — until those are provisioned this produces an unsigned
+      # .app payload only. Cannot install on device without signing.
+      - run: flutter build ios --release --no-codesign
+      - name: package unsigned .app
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent \
+            build/ios/iphoneos/Runner.app ios-unsigned-app.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-unsigned-app
+          path: ios-unsigned-app.zip
