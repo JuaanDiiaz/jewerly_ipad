@@ -103,3 +103,12 @@ Product images go to **Cloudinary** (unsigned upload preset hardcoded in `produc
 
 - The repo name is misspelled ("jewerly") and the directory is `lib/infraestructure/` — keep both as-is when writing imports
 - Only test: `test/widget_test.dart` (default smoke test); no existing test conventions to follow
+
+## Server-Authoritative Rules
+
+The backend enforces business rules; the client mirrors them only as previews (`lib/utils/sales_tax.dart` for tax). Writes the server guards (400 with a plain-text message):
+- **Stock truth** — below-zero changes are rejected, never clamped. CompleteSale reserves stock with a conditional `UPDATE ... WHERE quantity >= demand` inside a transaction (no oversell race); movement POST applies the delta atomically with the record.
+- **Movement types** — `IN`/`OUT` take positive quantities, `ADJUSTMENT` takes a signed delta (negative = shrinkage); unknown type → 400. A movement is the one write that changes stock with it — never POST a movement *and* call `/Inventory/UpdateQuantity` (that double-applies, the bug the physical-count screen had).
+- **Money** — `unitPrice >= 0` and `quantity >= 1` on sale items; detail `total` recomputed server-side on `/SalesOrderDetail` and `/PurchaseOrderDetail` writes; payment `amount > 0` with a customer or order reference; no negative headers/prices. Prices remain client-supplied at the register (POS allows choosing among active price lists); there is no server-side price lookup. Validity dates on `PriceListDetail` (validFrom/validTo) are not enforced anywhere yet.
+- **Paging** — list endpoints accept `page`/`page_size` (max 200); client fetch-all walks until `totalCount` (cap 200 pages). Purchase details support `purchaseOrderId`, payments support `salesOrderId` filters.
+- **Auth is intentionally deferred** — no login/permissions yet; the API is wide open. Do not expose the backend past localhost/firewall before that lands.
