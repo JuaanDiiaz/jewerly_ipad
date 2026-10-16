@@ -348,9 +348,15 @@ class _SalesListScreenState extends State<SalesListScreen> {
                     final sale = filteredSales[index];
                     final total = (sale.total as num?)?.toDouble() ?? 0;
                     final payments = paymentProvider.getPaymentsForSalesOrder(sale.id);
-                    final paid = paymentProvider.getTotalPaidForSalesOrder(sale.id);
-                    final remaining = total - paid;
                     final isMultiple = _isMultiplePayments(sale.paymentMethodId);
+                    // Single payment methods settle at the counter — the sale
+                    // itself is the receipt — so they're paid in full without a
+                    // CustomerPayment row; only multiple-payment sales track
+                    // recorded payments.
+                    final paid = isMultiple
+                        ? paymentProvider.getTotalPaidForSalesOrder(sale.id)
+                        : total;
+                    final remaining = total - paid;
                     final statusColor = _getStatusColor(paid, total, isMultiple);
                     final statusText = _getStatusText(paid, total, isMultiple);
                     final isExpanded = _expandedSaleId == sale.id;

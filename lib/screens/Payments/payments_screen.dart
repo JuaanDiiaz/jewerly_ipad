@@ -323,12 +323,18 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                     final sale = filteredSales[index];
                     final total = (sale.total as num?)?.toDouble() ?? 0;
                     final payments = paymentProvider.getPaymentsForSalesOrder(sale.id);
-                    final paid = paymentProvider.getTotalPaidForSalesOrder(sale.id);
+                    final isMultiple = _isMultiplePayments(sale.paymentMethodId);
+                    // Single payment methods settle at the counter — the sale
+                    // itself is the receipt — so they're paid in full without a
+                    // CustomerPayment row; only multiple-payment sales track
+                    // recorded payments.
+                    final paid = isMultiple
+                        ? paymentProvider.getTotalPaidForSalesOrder(sale.id)
+                        : total;
                     final remaining = total - paid;
                     final statusColor = _getStatusColor(paid, total);
                     final statusText = _getStatusText(paid, total);
                     final isExpanded = _expandedSaleId == sale.id;
-                    final isMultiple = _isMultiplePayments(sale.paymentMethodId);
 
                     return Container(
                       margin: const EdgeInsets.only(bottom: 12),
