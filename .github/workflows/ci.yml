@@ -20,4 +20,14 @@ jobs:
       # Errors turn the build red; pre-existing infos/warnings in legacy
       # screens must not (tighten later once the lint debt is paid down).
       - run: flutter analyze --no-fatal-infos --no-fatal-warnings
-      - run: flutter test
+      - name: flutter test
+        run: |
+          set -o pipefail
+          flutter test 2>&1 | tee test_output.txt
+      - name: publish failure details to job summary
+        if: failure()
+        run: |
+          echo '### flutter test output (tail)' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tail -100 test_output.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
