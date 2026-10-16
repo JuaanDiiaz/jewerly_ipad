@@ -472,6 +472,22 @@ class _SalesListScreenState extends State<SalesListScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  // The tax split, when the sale has one (legacy
+                                  // sales predate server-side tax and stay null).
+                                  if (sale.subtotal != null || sale.taxAmount != null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(bottom: 8),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.percent, size: 14, color: AppTheme.mutedText),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'Subtotal ${currencyFormat.format((sale.subtotal as num?)?.toDouble() ?? 0)} · IVA ${currencyFormat.format((sale.taxAmount as num?)?.toDouble() ?? 0)}',
+                                            style: TextStyle(color: AppTheme.mutedText, fontSize: 12),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [

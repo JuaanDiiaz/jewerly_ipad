@@ -10,11 +10,14 @@ import 'package:p_a_jewerly/providers/price_list_detail_provider.dart';
 import 'package:p_a_jewerly/providers/payment_method_provider.dart';
 import 'package:p_a_jewerly/providers/warehouse_provider.dart';
 import 'package:p_a_jewerly/providers/product_image_provider.dart';
+import 'package:p_a_jewerly/providers/tax_rate_provider.dart';
+import 'package:p_a_jewerly/providers/product_category_provider.dart';
 import 'package:p_a_jewerly/models/inventory_model.dart';
 import 'package:p_a_jewerly/models/price_list_model.dart';
 import 'package:p_a_jewerly/models/price_list_detail_model.dart';
 import 'package:p_a_jewerly/theme/app_theme.dart';
 import 'package:p_a_jewerly/utils/format.dart';
+import 'package:p_a_jewerly/utils/sales_tax.dart';
 import 'package:p_a_jewerly/widgets/loading_overlay.dart';
 import 'package:p_a_jewerly/widgets/picked_image.dart';
 
@@ -301,19 +304,8 @@ class _SaleScreenState extends State<SaleScreen> {
                           ),
                         )),
                         const Divider(height: 24),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Total:',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                            ),
-                            Text(
-                              '${formatCurrency(salesProvider.cartTotal)}',
-                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.success),
-                            ),
-                          ],
-                        ),
+                        ..._buildTaxRows(_cartTaxBreakdown(salesProvider),
+                            totalLabelWithTax: true),
                         const SizedBox(height: 20),
                         Consumer<SalesProvider>(
                           builder: (context, provider, _) {
@@ -849,7 +841,57 @@ class _SaleScreenState extends State<SaleScreen> {
     );
   }
 
+  /// IVA math from live provider data: rates + product-category links + cart.
+  CartTaxBreakdown _cartTaxBreakdown(SalesProvider salesProvider) {
+    final rates = context.watch<TaxRateProvider>().taxRates;
+    final links = context.watch<ProductCategoryProvider>().productCategories;
+    return computeCartTax(salesProvider.cart, rates, links);
+  }
+
+  /// The Subtotal / tax lines for the summary surfaces.
+  /// [totalLabelWithTax] true renders the bold Total row too (checkout
+  /// confirmation sheet); false leaves that to the caller (cart summary puts
+  /// its own Total row after the tax lines).
+  List<Widget> _buildTaxRows(CartTaxBreakdown tax,
+      {required bool totalLabelWithTax}) {
+    final rows = <Widget>[
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text('Subtotal',
+              style: TextStyle(color: AppTheme.mutedText)),
+          Text(formatCurrency(tax.subtotal)),
+        ],
+      ),
+    ];
+    for (final entry in tax.taxesByType.entries) {
+      rows.add(Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(entry.key, style: TextStyle(color: AppTheme.mutedText)),
+          Text(formatCurrency(entry.value)),
+        ],
+      ));
+    }
+    if (totalLabelWithTax) {
+      rows.add(const SizedBox(height: 6));
+      rows.add(Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text('Total', style: TextStyle(fontWeight: FontWeight.bold)),
+          Text(formatCurrency(tax.total),
+              style: const TextStyle(
+                  fontWeight: FontWeight.bold, color: AppTheme.success)),
+        ],
+      ));
+    }
+    return rows;
+  }
+
   Widget _buildCartSummary(SalesProvider salesProvider) {
+    // Prices are IVA-exclusive: the breakdown (per active rate, mirroring the
+    // backend's per-line rounding) is added on top of the cart's posted prices.
+    final tax = _cartTaxBreakdown(salesProvider);
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -861,11 +903,16 @@ class _SaleScreenState extends State<SaleScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          ..._buildTaxRows(tax, totalLabelWithTax: false),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Subtotal:', style: TextStyle(color: AppTheme.mutedText, fontSize: 13)),
-              Text('${formatCurrency(salesProvider.cartTotal)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text('Total:', style: TextStyle(color: AppTheme.mutedText, fontSize: 13)),
+              Text('${formatCurrency(tax.total)}',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.success,
+                      fontSize: 15)),
             ],
           ),
           const SizedBox(height: 8),
@@ -956,7 +1003,7 @@ class _SaleScreenState extends State<SaleScreen> {
                   const Icon(Icons.shopping_cart_checkout, size: 18),
                   const SizedBox(width: 8),
                   Text(
-                    'Checkout ${formatCurrency(salesProvider.cartTotal)}',
+                    'Checkout ${formatCurrency(_cartTaxBreakdown(salesProvider).total)}',
                     style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                   ),
                 ],

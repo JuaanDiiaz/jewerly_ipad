@@ -52,4 +52,58 @@ class ProductCategoryProvider extends ChangeNotifier {
         .map((pc) => pc.categoryId)
         .toList();
   }
+
+  /// First category link (row id) for a product, if any — used by the product
+  /// dialog to load and replace the primary category assignment.
+  ProductCategoryModel? linkForProduct(int productId) {
+    for (final link in _productCategories) {
+      if (link.productId == productId) return link;
+    }
+    return null;
+  }
+
+  /// Sets (or replaces) the product's primary category. Products carry their
+  /// category through this join link, which drives per-category tax rates
+  /// and the category-share report.
+  Future<bool> upsertProductCategory(int productId, int categoryId) async {
+    final existing = linkForProduct(productId);
+    try {
+      if (existing?.categoryId == categoryId) return true;
+      if (existing != null) {
+        final updated = ProductCategoryModel(
+          id: existing.id,
+          categoryId: categoryId,
+          productId: productId,
+        );
+        final response = await _apiService
+            .put('/ProductCategory/${existing.id}', body: updated.toJson());
+        if (response is Map<String, dynamic>) {
+          final index =
+              _productCategories.indexWhere((pc) => pc.id == existing.id);
+          if (index != -1) {
+            _productCategories[index] =
+                ProductCategoryModel.fromJson(response);
+          }
+        } else {
+          await fetchProductCategories();
+        }
+      } else {
+        final response = await _apiService.post('/ProductCategory',
+            body: ProductCategoryModel(
+                    id: 0, categoryId: categoryId, productId: productId)
+                .toJson());
+        if (response is Map<String, dynamic>) {
+          _productCategories.add(ProductCategoryModel.fromJson(response));
+        } else {
+          await fetchProductCategories();
+        }
+      }
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
 }

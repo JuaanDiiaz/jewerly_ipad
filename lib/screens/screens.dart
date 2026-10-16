@@ -18,5 +18,6 @@ export 'package:p_a_jewerly/screens/Suppliers/suppliers_screen.dart';
 export 'package:p_a_jewerly/screens/SupplierProducts/supplier_products_screen.dart';
 export 'package:p_a_jewerly/screens/PriceListDetails/price_list_details_screen.dart';
 export 'package:p_a_jewerly/screens/SalesTax/sales_tax_screen.dart';
+export 'package:p_a_jewerly/screens/TaxRates/tax_rates_screen.dart';
 export 'package:p_a_jewerly/screens/Reports/reports_main_screen.dart';
 export 'package:p_a_jewerly/screens/Splash/splash_screen.dart';

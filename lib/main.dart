@@ -73,6 +73,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ChangeNotifierProvider(create: (_) => PriceListProvider()),
         ChangeNotifierProvider(create: (_) => PriceListDetailProvider()),
         ChangeNotifierProvider(create: (_) => SalesTaxProvider()),
+        ChangeNotifierProvider(create: (_) => TaxRateProvider()),
         ChangeNotifierProvider(create: (_) => CustomerPaymentProvider()),
         ChangeNotifierProvider(create: (_) => ProductCategoryProvider()),
         ChangeNotifierProvider(create: (_) => PurchaseOrderProvider()),

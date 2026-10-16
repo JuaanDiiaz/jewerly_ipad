@@ -5,6 +5,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:p_a_jewerly/providers/product_provider.dart';
 import 'package:p_a_jewerly/providers/product_image_provider.dart';
+import 'package:p_a_jewerly/providers/category_provider.dart';
+import 'package:p_a_jewerly/providers/product_category_provider.dart';
 import 'package:p_a_jewerly/theme/app_theme.dart';
 import 'package:p_a_jewerly/widgets/picked_image.dart';
 import 'package:p_a_jewerly/widgets/product_image_gallery.dart';
@@ -31,6 +33,11 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
   // True while a create/update request is in flight — the form dialog stays
   // open with its action buttons disabled until the result arrives.
   bool _isSaving = false;
+  // Category assignment for the product dialog: products carry their
+  // category through the ProductCategory link, which drives per-category
+  // tax rates. Null = uncategorized.
+  int? _selectedCategoryId;
+  int? _originalCategoryId;
 
   @override
   void initState() {
@@ -39,6 +46,12 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
       if (!mounted) return;
       context.read<ProductProvider>().fetchProducts();
       context.read<ProductImageProvider>().fetchAllImages();
+      if (context.read<CategoryProvider>().isStale) {
+        context.read<CategoryProvider>().fetchCategories();
+      }
+      if (context.read<ProductCategoryProvider>().isStale) {
+        context.read<ProductCategoryProvider>().fetchProductCategories();
+      }
     });
   }
 
@@ -49,6 +62,9 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
   }
 
   void _openProductDialog({dynamic product}) {
+    _originalCategoryId =
+        product == null ? null : context.read<ProductCategoryProvider>().linkForProduct(product.id)?.categoryId;
+    _selectedCategoryId = _originalCategoryId;
     _editingId = product?.id;
     _descriptionController.text = product?.description ?? '';
     _primaryImagePath = product?.picture;
@@ -239,6 +255,49 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
                           ),
                         ),
 
+                        // Category assignment — drives per-category tax
+                        // rates and the category-share report.
+                        Consumer<CategoryProvider>(
+                          builder: (context, categoryProvider, _) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 20),
+                                Text(
+                                  'Category',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.textColor,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                DropdownButtonFormField<int?>(
+                                  value: _selectedCategoryId,
+                                  decoration: const InputDecoration(
+                                    hintText: 'No category (pays default rate)',
+                                  ),
+                                  items: [
+                                    const DropdownMenuItem(
+                                        value: null, child: Text('No category')),
+                                    ...categoryProvider.categories.map((c) {
+                                      return DropdownMenuItem(
+                                        value: c.id,
+                                        child: Text(
+                                            c.description ?? 'Category ${c.id}',
+                                            overflow: TextOverflow.ellipsis),
+                                      );
+                                    }),
+                                  ],
+                                  onChanged: (value) => setState(() {
+                                    _selectedCategoryId = value;
+                                  }),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+
                         // Additional Images (for both new and existing products)
                         const SizedBox(height: 20),
                         Row(
@@ -356,6 +415,12 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
       success = await provider.createProduct(productData);
 
       if (success && provider.lastCreatedProductId != null) {
+        if (_selectedCategoryId != null) {
+          await context.read<ProductCategoryProvider>().upsertProductCategory(
+                provider.lastCreatedProductId!,
+                _selectedCategoryId!,
+              );
+        }
         // Upload additional images for the new product
         for (final imageFile in _additionalImages) {
           await imageProvider.addProductImage(
@@ -368,6 +433,16 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
     } else {
       // Update existing product
       success = await provider.updateProduct(_editingId!, productData);
+
+      if (success && _selectedCategoryId != _originalCategoryId) {
+        // Category changed (or added): sync the link. A null selection with
+        // no prior link is simply nothing to do.
+        if (_selectedCategoryId != null) {
+          await context
+              .read<ProductCategoryProvider>()
+              .upsertProductCategory(_editingId!, _selectedCategoryId!);
+        }
+      }
     }
 
     if (!mounted) return;

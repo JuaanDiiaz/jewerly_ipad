@@ -140,9 +140,9 @@ class _HomeScreenState extends State<HomeScreen>
           screen: const PriceListDetailsScreen(),
         ),
         MenuItem(
-          title: 'Sales Tax',
+          title: 'Tax Rates',
           icon: Icons.percent_outlined,
-          screen: const SalesTaxScreen(),
+          screen: const TaxRatesScreen(),
         ),
       ],
     ),
@@ -183,7 +183,7 @@ class _HomeScreenState extends State<HomeScreen>
     // Staleness-gated refetches; provider fetches are silent no-ops over
     // fresh data, so this is cheap on rapid menu switching.
     switch (index) {
-      case 0: // New Sale (POS) — current products, stock, debt, methods
+      case 0: // New Sale (POS) — current products, stock, debt, methods, taxes
         final sales = context.read<SalesProvider>();
         final products = context.read<ProductProvider>();
         final inventory = context.read<InventoryProvider>();
@@ -192,6 +192,8 @@ class _HomeScreenState extends State<HomeScreen>
         final methods = context.read<PaymentMethodProvider>();
         final payments = context.read<CustomerPaymentProvider>();
         final images = context.read<ProductImageProvider>();
+        final taxRates = context.read<TaxRateProvider>();
+        final productCategories = context.read<ProductCategoryProvider>();
         if (products.isStale) products.fetchProducts(fetchAll: true);
         if (inventory.isStale) inventory.fetchInventory();
         if (customers.isStale) customers.fetchCustomers(fetchAll: true);
@@ -200,6 +202,8 @@ class _HomeScreenState extends State<HomeScreen>
         if (payments.isStale) payments.fetchPayments();
         if (sales.isStale) sales.fetchSales();
         if (images.isStale) images.fetchAllImages();
+        if (taxRates.isStale) taxRates.fetchTaxRates();
+        if (productCategories.isStale) productCategories.fetchProductCategories();
         break;
       case 1: // Sales History
         final sales = context.read<SalesProvider>();
@@ -264,9 +268,11 @@ class _HomeScreenState extends State<HomeScreen>
         final details = context.read<PriceListDetailProvider>();
         if (details.isStale) details.fetchPriceListDetails();
         break;
-      case 17: // Admin / Sales Tax
-        final tax = context.read<SalesTaxProvider>();
-        if (tax.isStale) tax.fetchSalesTaxes();
+      case 17: // Admin / Tax Rates
+        final taxRates = context.read<TaxRateProvider>();
+        final categories = context.read<CategoryProvider>();
+        if (taxRates.isStale) taxRates.fetchTaxRates();
+        if (categories.isStale) categories.fetchCategories();
         break;
       default:
         break;

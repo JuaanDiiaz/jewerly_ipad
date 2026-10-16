@@ -12,6 +12,7 @@ export 'supplier_product_provider.dart';
 export 'price_list_provider.dart';
 export 'price_list_detail_provider.dart';
 export 'sales_tax_provider.dart';
+export 'tax_rate_provider.dart';
 export 'customer_payment_provider.dart';
 export 'product_category_provider.dart';
 export 'purchase_order_provider.dart';
