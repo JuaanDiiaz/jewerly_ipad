@@ -4,7 +4,10 @@ import 'package:p_a_jewerly/config/environment.dart';
 
 class ApiConfigProvider extends ChangeNotifier {
   static const String _apiUrlKey = 'api_base_url';
-  static const String _defaultUrl = 'http://localhost:3000/api/v1';
+  // Same default as Environment._defaultUrl — requests always go through
+  // Environment.baseUrl; this mirror exists for the Settings display and the
+  // "reset to default" action.
+  static const String _defaultUrl = Environment.defaultApiUrl;
 
   String _apiUrl = _defaultUrl;
   bool _isInitialized = false;

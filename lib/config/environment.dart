@@ -5,9 +5,11 @@ enum EnvironmentType { development, staging, production }
 class Environment {
   static EnvironmentType _environment = EnvironmentType.development;
   static const String _apiUrlKey = 'api_base_url';
-  // Matches the ASP.NET backend running locally (.env's API_BASE_URL); users
-  // can still override per device from the Settings screen.
-  static const String _defaultUrl = 'http://localhost:5259/api';
+
+  /// Shared default base URL (matches the ASP.NET backend running locally,
+  /// i.e. .env's API_BASE_URL). Public so display-only consumers — e.g.
+  /// ApiConfigProvider's Settings screen — show the same value requests use.
+  static const String defaultApiUrl = 'http://localhost:5259/api';
   static String _cachedUrl = '';
 
   static void initialize() {
@@ -18,13 +20,13 @@ class Environment {
   static Future<void> _loadCachedUrl() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      _cachedUrl = prefs.getString(_apiUrlKey) ?? _defaultUrl;
+      _cachedUrl = prefs.getString(_apiUrlKey) ?? defaultApiUrl;
     } catch (e) {
-      _cachedUrl = _defaultUrl;
+      _cachedUrl = defaultApiUrl;
     }
   }
 
-  static String get baseUrl => _cachedUrl.isNotEmpty ? _cachedUrl : _defaultUrl;
+  static String get baseUrl => _cachedUrl.isNotEmpty ? _cachedUrl : defaultApiUrl;
 
   static EnvironmentType get current => _environment;
   static bool get isDevelopment => _environment == EnvironmentType.development;
