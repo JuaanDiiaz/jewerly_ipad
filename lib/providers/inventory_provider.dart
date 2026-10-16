@@ -10,6 +10,12 @@ class InventoryProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
 
+  DateTime _lastFetched = DateTime.fromMillisecondsSinceEpoch(0);
+  /// True when no data or the last successful fetch is older than 60s —
+  /// HomeScreen refetches on navigation only when this is true.
+  bool get isStale =>
+      DateTime.now().difference(_lastFetched) > const Duration(seconds: 60);
+
   // Pagination state for the movements list
   int _movementPage = 1;
   bool _movementsHasMore = true;
@@ -23,7 +29,7 @@ class InventoryProvider extends ChangeNotifier {
   bool get isLoadingMoreMovements => _isLoadingMoreMovements;
 
   Future<void> fetchInventory({String? warehouseId}) async {
-    _isLoading = true;
+    _isLoading = _inventory.isEmpty;
     _error = null;
     notifyListeners();
 
@@ -35,6 +41,7 @@ class InventoryProvider extends ChangeNotifier {
       _inventory = (response as List)
           .map((json) => InventoryModel.fromJson(json))
           .toList();
+      _lastFetched = DateTime.now();
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -57,7 +64,7 @@ class InventoryProvider extends ChangeNotifier {
       _error = null;
       notifyListeners();
     } else {
-      _isLoading = true;
+      _isLoading = _movements.isEmpty;
       _error = null;
       _movementPage = 1;
       notifyListeners();
@@ -81,6 +88,11 @@ class InventoryProvider extends ChangeNotifier {
         _movementPage = targetPage;
       } else {
         _movements = fetched;
+        // Only a plain call refreshes the whole movements list — an
+        // item/date-filtered call is a lookup, not a collection refresh.
+        if (itemId == null && fromDate == null && toDate == null) {
+          _lastFetched = DateTime.now();
+        }
       }
       _movementsHasMore = envelope.hasMore;
     } catch (e) {

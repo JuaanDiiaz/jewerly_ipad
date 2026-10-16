@@ -8,12 +8,18 @@ class SalesTaxProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
 
+  DateTime _lastFetched = DateTime.fromMillisecondsSinceEpoch(0);
+  /// True when no data or the last successful fetch is older than 60s —
+  /// HomeScreen refetches on navigation only when this is true.
+  bool get isStale =>
+      DateTime.now().difference(_lastFetched) > const Duration(seconds: 60);
+
   List<SalesTaxDetailModel> get salesTaxes => _salesTaxes;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
   Future<void> fetchSalesTaxes() async {
-    _isLoading = true;
+    _isLoading = _salesTaxes.isEmpty;
     _error = null;
     notifyListeners();
 
@@ -22,6 +28,7 @@ class SalesTaxProvider extends ChangeNotifier {
       _salesTaxes = (response as List)
           .map((json) => SalesTaxDetailModel.fromJson(json))
           .toList();
+      _lastFetched = DateTime.now();
     } catch (e) {
       _error = e.toString();
     } finally {

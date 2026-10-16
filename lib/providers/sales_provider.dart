@@ -38,6 +38,12 @@ class SalesProvider extends ChangeNotifier {
   bool _hasMore = true;
   bool _isLoadingMore = false;
 
+  DateTime _lastFetched = DateTime.fromMillisecondsSinceEpoch(0);
+  /// True when no data or the last successful fetch is older than 60s —
+  /// HomeScreen refetches on navigation only when this is true.
+  bool get isStale =>
+      DateTime.now().difference(_lastFetched) > const Duration(seconds: 60);
+
   List<SalesOrderHeaderModel> get sales => _sales;
   List<CartItem> get cart => _cart;
   int? get selectedCustomerId => _selectedCustomerId;
@@ -139,7 +145,7 @@ class SalesProvider extends ChangeNotifier {
       _error = null;
       notifyListeners();
     } else {
-      _isLoading = true;
+      _isLoading = _sales.isEmpty;
       _error = null;
       _page = 1;
       notifyListeners();
@@ -174,6 +180,7 @@ class SalesProvider extends ChangeNotifier {
         _sales.addAll(fetched);
       } else {
         _sales = fetched;
+        _lastFetched = DateTime.now();
       }
       _page = page;
       _hasMore = !keepGoing && page * lastPageSize < totalCount;

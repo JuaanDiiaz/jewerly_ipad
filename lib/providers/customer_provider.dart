@@ -14,6 +14,12 @@ class CustomerProvider extends ChangeNotifier {
   bool _isLoadingMore = false;
   String? _searchQuery;
 
+  DateTime _lastFetched = DateTime.fromMillisecondsSinceEpoch(0);
+  /// True when no data or the last successful fetch is older than 60s —
+  /// HomeScreen refetches on navigation only when this is true.
+  bool get isStale =>
+      DateTime.now().difference(_lastFetched) > const Duration(seconds: 60);
+
   List<CustomerModel> get customers => _customers;
   bool get isLoading => _isLoading;
   String? get error => _error;
@@ -33,7 +39,7 @@ class CustomerProvider extends ChangeNotifier {
       _searchQuery = (query != null && query.trim().isNotEmpty)
           ? query.trim()
           : null;
-      _isLoading = true;
+      _isLoading = _customers.isEmpty;
       _error = null;
       _page = 1;
       notifyListeners();
@@ -72,6 +78,7 @@ class CustomerProvider extends ChangeNotifier {
         _customers.addAll(fetched);
       } else {
         _customers = fetched;
+        _lastFetched = DateTime.now();
       }
       _page = page;
       _hasMore = !keepGoing && page * lastPageSize < totalCount;

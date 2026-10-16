@@ -171,6 +171,106 @@ class _HomeScreenState extends State<HomeScreen>
       _visitedScreens.add(index);
     });
     _paneFade.forward(from: 0);
+    _refreshOnNavigate(index);
+  }
+
+  /// Data freshness on navigation, without remounting the screen: indexes
+  /// map to the fetches their screen's initState performs, and each provider
+  /// skips the work when its data is fresh (<60s old). Fetches are silent
+  /// over existing data (spinner only when the list is empty), so switching
+  /// screens never blanks what was already on view.
+  void _refreshOnNavigate(int index) {
+    // Staleness-gated refetches; provider fetches are silent no-ops over
+    // fresh data, so this is cheap on rapid menu switching.
+    switch (index) {
+      case 0: // New Sale (POS) — current products, stock, debt, methods
+        final sales = context.read<SalesProvider>();
+        final products = context.read<ProductProvider>();
+        final inventory = context.read<InventoryProvider>();
+        final customers = context.read<CustomerProvider>();
+        final warehouses = context.read<WarehouseProvider>();
+        final methods = context.read<PaymentMethodProvider>();
+        final payments = context.read<CustomerPaymentProvider>();
+        final images = context.read<ProductImageProvider>();
+        if (products.isStale) products.fetchProducts(fetchAll: true);
+        if (inventory.isStale) inventory.fetchInventory();
+        if (customers.isStale) customers.fetchCustomers(fetchAll: true);
+        if (warehouses.isStale) warehouses.fetchWarehouses();
+        if (methods.isStale) methods.fetchPaymentMethods();
+        if (payments.isStale) payments.fetchPayments();
+        if (sales.isStale) sales.fetchSales();
+        if (images.isStale) images.fetchAllImages();
+        break;
+      case 1: // Sales History
+        final sales = context.read<SalesProvider>();
+        if (sales.isStale) sales.fetchSales();
+        break;
+      case 2: // Inventory Movements
+        final inventory = context.read<InventoryProvider>();
+        if (inventory.isStale) inventory.fetchMovements();
+        break;
+      case 3: // Physical Count
+        final products = context.read<ProductProvider>();
+        final warehouses = context.read<WarehouseProvider>();
+        if (products.isStale) products.fetchProducts(fetchAll: true);
+        if (warehouses.isStale) warehouses.fetchWarehouses();
+        break;
+      case 4: // Prices
+        final details = context.read<PriceListDetailProvider>();
+        if (details.isStale) details.fetchPriceListDetails();
+        break;
+      case 5: // Purchases
+        final purchases = context.read<PurchaseOrderProvider>();
+        if (purchases.isStale) purchases.fetchOrders();
+        break;
+      case 6: // All Customers
+        final customers = context.read<CustomerProvider>();
+        if (customers.isStale) customers.fetchCustomers();
+        break;
+      case 7: // Payments
+        final payments = context.read<CustomerPaymentProvider>();
+        final sales = context.read<SalesProvider>();
+        if (payments.isStale) payments.fetchPayments();
+        if (sales.isStale) sales.fetchSales(fetchAll: true);
+        break;
+      case 8: // Products
+        final products = context.read<ProductProvider>();
+        if (products.isStale) products.fetchProducts();
+        break;
+      case 9: // Reports — refreshes via its own controls (see refresh button)
+      case 10: // Settings — nothing to fetch
+        break;
+      case 11: // Admin / Warehouses
+        final warehouses = context.read<WarehouseProvider>();
+        if (warehouses.isStale) warehouses.fetchWarehouses();
+        break;
+      case 12: // Admin / Categories
+        final categories = context.read<CategoryProvider>();
+        if (categories.isStale) categories.fetchCategories();
+        break;
+      case 13: // Admin / Payment Methods
+        final methods = context.read<PaymentMethodProvider>();
+        if (methods.isStale) methods.fetchPaymentMethods();
+        break;
+      case 14: // Admin / Suppliers
+        final suppliers = context.read<SupplierProvider>();
+        if (suppliers.isStale) suppliers.fetchSuppliers();
+        break;
+      case 15: // Admin / Supplier Products
+        final supplierProducts = context.read<SupplierProductProvider>();
+        if (supplierProducts.isStale) supplierProducts.fetchSupplierProducts();
+        break;
+      case 16: // Admin / Price Lists
+        final details = context.read<PriceListDetailProvider>();
+        if (details.isStale) details.fetchPriceListDetails();
+        break;
+      case 17: // Admin / Sales Tax
+        final tax = context.read<SalesTaxProvider>();
+        if (tax.isStale) tax.fetchSalesTaxes();
+        break;
+      default:
+        break;
+    }
   }
 
   @override

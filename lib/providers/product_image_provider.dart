@@ -16,6 +16,12 @@ class ProductImageProvider extends ChangeNotifier {
   bool _isUploading = false;
   String? _error;
 
+  DateTime _lastFetched = DateTime.fromMillisecondsSinceEpoch(0);
+  /// True when no data or the last successful fetch is older than 60s —
+  /// HomeScreen refetches on navigation only when this is true.
+  bool get isStale =>
+      DateTime.now().difference(_lastFetched) > const Duration(seconds: 60);
+
   // Cloudinary config
   static const String _cloudinaryUrl =
       'https://api.cloudinary.com/v1_1/duw0j4d3p/image/upload?upload_preset=tenis_v1';
@@ -55,7 +61,7 @@ class ProductImageProvider extends ChangeNotifier {
 
   /// Fetch all product images (for caching all products)
   Future<void> fetchAllImages() async {
-    _isLoading = true;
+    _isLoading = _imagesByProduct.isEmpty;
     _error = null;
     notifyListeners();
 
@@ -70,6 +76,7 @@ class ProductImageProvider extends ChangeNotifier {
         _imagesByProduct.putIfAbsent(image.productId, () => []);
         _imagesByProduct[image.productId]!.add(image);
       }
+      _lastFetched = DateTime.now();
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -300,6 +307,7 @@ class ProductImageProvider extends ChangeNotifier {
   /// Clear cache
   void clearCache() {
     _imagesByProduct.clear();
+    _lastFetched = DateTime.fromMillisecondsSinceEpoch(0);
     notifyListeners();
   }
 }

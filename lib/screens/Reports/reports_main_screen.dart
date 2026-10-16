@@ -1081,10 +1081,31 @@ class _ReportsMainScreenState extends State<ReportsMainScreen> {
                     _refresh();
                   },
                 ),
+              // Explicit refresh: navigation doesn't auto-refetch reports, so
+              // this is the way to pull the latest numbers on demand.
+              _buildRefreshChip(),
             ],
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildRefreshChip() {
+    final isLoading = context.watch<ReportsProvider>().isLoading;
+    return ActionChip(
+      avatar: isLoading
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: Padding(
+                padding: EdgeInsets.all(2),
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
+          : const Icon(Icons.refresh, size: 18, color: AppTheme.primaryGold),
+      label: const Text('Refresh'),
+      onPressed: isLoading ? null : _refresh,
     );
   }
 }

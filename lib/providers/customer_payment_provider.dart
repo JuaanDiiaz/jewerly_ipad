@@ -8,12 +8,18 @@ class CustomerPaymentProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
 
+  DateTime _lastFetched = DateTime.fromMillisecondsSinceEpoch(0);
+  /// True when no data or the last successful fetch is older than 60s —
+  /// HomeScreen refetches on navigation only when this is true.
+  bool get isStale =>
+      DateTime.now().difference(_lastFetched) > const Duration(seconds: 60);
+
   List<CustomerPaymentModel> get payments => _payments;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
   Future<void> fetchPayments() async {
-    _isLoading = true;
+    _isLoading = _payments.isEmpty;
     _error = null;
     notifyListeners();
 
@@ -22,6 +28,7 @@ class CustomerPaymentProvider extends ChangeNotifier {
       _payments = (response as List)
           .map((json) => CustomerPaymentModel.fromJson(json))
           .toList();
+      _lastFetched = DateTime.now();
     } catch (e) {
       _error = e.toString();
     } finally {

@@ -10,13 +10,19 @@ class PurchaseOrderProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
 
+  DateTime _lastFetched = DateTime.fromMillisecondsSinceEpoch(0);
+  /// True when no data or the last successful fetch is older than 60s —
+  /// HomeScreen refetches on navigation only when this is true.
+  bool get isStale =>
+      DateTime.now().difference(_lastFetched) > const Duration(seconds: 60);
+
   List<PurchaseOrderHeaderModel> get orders => _orders;
   List<PurchaseOrderDetailModel> get orderDetails => _orderDetails;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
   Future<void> fetchOrders() async {
-    _isLoading = true;
+    _isLoading = _orders.isEmpty;
     _error = null;
     notifyListeners();
 
@@ -25,6 +31,7 @@ class PurchaseOrderProvider extends ChangeNotifier {
       _orders = (response as List)
           .map((json) => PurchaseOrderHeaderModel.fromJson(json))
           .toList();
+      _lastFetched = DateTime.now();
     } catch (e) {
       _error = e.toString();
     } finally {

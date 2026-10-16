@@ -20,6 +20,12 @@ class ProductProvider extends ChangeNotifier {
   bool _isLoadingMore = false;
   String? _searchQuery;
 
+  DateTime _lastFetched = DateTime.fromMillisecondsSinceEpoch(0);
+  /// True when no data or the last successful fetch is older than 60s —
+  /// HomeScreen refetches on navigation only when this is true.
+  bool get isStale =>
+      DateTime.now().difference(_lastFetched) > const Duration(seconds: 60);
+
   // Cloudinary config (same as gestor_tenis project)
   static const String _cloudinaryUrl =
       'https://api.cloudinary.com/v1_1/duw0j4d3p/image/upload?upload_preset=tenis_v1';
@@ -46,7 +52,7 @@ class ProductProvider extends ChangeNotifier {
       _searchQuery = (query != null && query.trim().isNotEmpty)
           ? query.trim()
           : null;
-      _isLoading = true;
+      _isLoading = _products.isEmpty;
       _error = null;
       _page = 1;
       notifyListeners();
@@ -87,6 +93,7 @@ class ProductProvider extends ChangeNotifier {
         _products.addAll(fetched);
       } else {
         _products = fetched;
+        _lastFetched = DateTime.now();
       }
       _page = page;
       _hasMore = !keepGoing && page * lastPageSize < totalCount;
