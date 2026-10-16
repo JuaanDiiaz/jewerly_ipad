@@ -539,18 +539,20 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image - fixed aspect ratio instead of expanded
-            AspectRatio(
-              aspectRatio: 1.2,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  ClipRRect(
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(16),
-                      topRight: Radius.circular(16),
-                    ),
-                    child: primaryImage != null && primaryImage.isNotEmpty
+            // Image takes the slack in the fixed grid cell so the info
+            // section below (text + action row) always fits — with a fixed
+            // AspectRatio here the two could exceed the cell height and the
+            // card showed RenderFlex overflow stripes on narrow columns.
+            Expanded(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                ),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                  primaryImage != null && primaryImage.isNotEmpty
                         ? Hero(
                             tag: 'product-hero-${product.id}',
                             child: Image.network(
@@ -574,7 +576,6 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
                               color: AppTheme.primaryGold.withOpacity(0.5),
                             ),
                           ),
-                  ),
                   // Image count indicator
                   if (imageCount > 0)
                     Positioned(
@@ -602,6 +603,7 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
                 ],
               ),
             ),
+            ),
             // Info
             Padding(
               padding: const EdgeInsets.all(12),
@@ -625,6 +627,8 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
                       fontSize: 12,
                       color: AppTheme.mutedText,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 8),
                   Row(

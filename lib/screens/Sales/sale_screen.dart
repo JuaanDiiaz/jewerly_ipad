@@ -1317,9 +1317,12 @@ class _ProductCardState extends State<_ProductCard> {
                         children: [
                           Icon(Icons.scale, size: 12, color: AppTheme.mutedText),
                           const SizedBox(width: 4),
-                          Text(
-                            '${widget.inventory!.weight} g',
-                            style: TextStyle(color: AppTheme.mutedText, fontSize: 11),
+                          Expanded(
+                            child: Text(
+                              '${widget.inventory!.weight} g',
+                              style: TextStyle(color: AppTheme.mutedText, fontSize: 11),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ],
                       ),
