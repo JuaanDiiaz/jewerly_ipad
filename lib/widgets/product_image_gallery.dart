@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:p_a_jewerly/providers/product_image_provider.dart';
+import 'package:p_a_jewerly/providers/product_provider.dart';
 import 'package:p_a_jewerly/theme/app_theme.dart';
 import 'package:p_a_jewerly/widgets/picked_image.dart';
 
@@ -53,8 +54,10 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
   List<XFile> _localImages = []; // New products: picked files (paths are browser blob URLs)
 
   /// Normalizes the display list the same way as `build` so deletion and
-  /// pick handlers map indexes consistently with what is rendered.
-  List<_GalleryItem> _buildDisplayItems() {
+  /// pick handlers map indexes consistently with what is rendered. The
+  /// provider is passed in (watch in build, read in handlers) so handlers
+  /// can call this outside the build phase without provider errors.
+  List<_GalleryItem> _displayItems(ProductImageProvider imageProvider) {
     final items = <_GalleryItem>[];
     final primary = _GalleryItem(
       url: widget.primaryImageUrl,
@@ -63,7 +66,6 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
 
     if (widget.productId != null) {
       // Existing product - get from provider
-      final imageProvider = context.watch<ProductImageProvider>();
       final productImages = imageProvider.getImagesForProduct(widget.productId!);
       final urls = productImages
           .map((img) => img.imageUrl)
@@ -88,12 +90,41 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
     return items;
   }
 
+  List<_GalleryItem> _buildDisplayItems() {
+    return _displayItems(context.watch<ProductImageProvider>());
+  }
+
   /// For new products: whether the primary image (picked on the product
   /// dialog) is part of the rendered display list at index 0.
   bool _hasPrimaryItem() {
     final primary = _GalleryItem(url: widget.primaryImageUrl, bytes: widget.primaryImageBytes);
     return !primary.isEmpty &&
         !_localImages.any((i) => i.path == widget.primaryImageUrl);
+  }
+
+  /// Syncs `_selectedIndex` (highlight, counter) and the PageView itself.
+  /// Thumbnail taps and post-add/delete selections previously only changed
+  /// `_selectedIndex` — the main image silently stayed where it was.
+  void _goToPage(int index, {bool animate = false}) {
+    if (index < 0) return;
+    setState(() => _selectedIndex = index);
+    void jump() {
+      if (mounted && _pageController.hasClients) {
+        if (animate) {
+          _pageController.animateToPage(index, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+        } else {
+          _pageController.jumpToPage(index);
+        }
+      }
+    }
+
+    if (_pageController.hasClients) {
+      jump();
+    } else {
+      // PageView not attached yet (e.g. first image just appeared) — retry
+      // after this frame's build, when the attach has happened.
+      WidgetsBinding.instance.addPostFrameCallback((_) => jump());
+    }
   }
 
   @override
@@ -115,7 +146,7 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
     if (oldWidget.productId != widget.productId) {
       _localImages = List.from(widget.existingImageUrls);
       _selectedIndex = 0;
-      _pageController.jumpToPage(0);
+      if (_pageController.hasClients) _pageController.jumpToPage(0);
     }
   }
 
@@ -123,11 +154,17 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
   Widget build(BuildContext context) {
     final displayItems = _buildDisplayItems();
 
-    // Ensure selectedIndex is within bounds
+    // Ensure selectedIndex is within bounds; if the list shrank (an image
+    // was deleted), pull the PageView back in range too.
     if (_selectedIndex >= displayItems.length) {
       // `double.infinity.toInt()` throws `UnsupportedError` — index into an
       // empty list must simply reset to 0.
       _selectedIndex = displayItems.isEmpty ? 0 : displayItems.length - 1;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _pageController.hasClients && displayItems.isNotEmpty) {
+          _pageController.jumpToPage(_selectedIndex);
+        }
+      });
     }
 
     final hasImages = displayItems.isNotEmpty;
@@ -180,6 +217,7 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
     return Stack(
       children: [
         PageView.builder(
+          controller: _pageController,
           itemCount: images.length,
           onPageChanged: (index) => setState(() => _selectedIndex = index),
           itemBuilder: (context, index) {
@@ -240,9 +278,9 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
             child: Center(
               child: GestureDetector(
                 onTap: () {
-                  if (_selectedIndex > 0) {
-                    _pageController.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
-                  }
+                  // _goToPage guards the PageView-not-attached case
+                  // (`PageController.page` asserts before the attach).
+                  if (_selectedIndex > 0) _goToPage(_selectedIndex - 1, animate: true);
                 },
                 child: Container(
                   padding: const EdgeInsets.all(8),
@@ -263,7 +301,7 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
               child: GestureDetector(
                 onTap: () {
                   if (_selectedIndex < images.length - 1) {
-                    _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+                    _goToPage(_selectedIndex + 1, animate: true);
                   }
                 },
                 child: Container(
@@ -311,7 +349,7 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
     final isSelected = index == _selectedIndex;
 
     return GestureDetector(
-      onTap: () => setState(() => _selectedIndex = index),
+      onTap: () => _goToPage(index),
       child: Container(
         width: 70,
         height: 70,
@@ -474,11 +512,11 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
 
     if (pickedFile != null) {
       setState(() => _isAddingImage = true);
+      final provider = context.read<ProductImageProvider>();
 
       if (widget.productId != null) {
         // Existing product - upload immediately (the XFile is read as bytes
         // inside the provider, which works on web too)
-        final provider = context.read<ProductImageProvider>();
         final success = await provider.addProductImage(
           widget.productId!,
           pickedFile,
@@ -486,15 +524,12 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
         );
 
         if (mounted) {
-          setState(() {
-            _isAddingImage = false;
-            if (success) {
-              final images = provider.getImagesForProduct(widget.productId!);
-              if (images.isNotEmpty) {
-                _selectedIndex = images.length - 1;
-              }
-            }
-          });
+          setState(() => _isAddingImage = false);
+          if (success) {
+            // Select the image just added (last in the display list)
+            final items = _displayItems(provider);
+            _goToPage(items.length - 1);
+          }
 
           if (!success) {
             final errorMsg = provider.error ?? 'Failed to add image';
@@ -513,67 +548,81 @@ class _ProductImageGalleryState extends State<ProductImageGallery> {
         setState(() {
           _isAddingImage = false;
           _localImages.add(pickedFile);
-          _selectedIndex = _localImages.length - 1;
         });
 
-        // Notify parent
+        // Select the image just added and notify parent
+        _goToPage(_displayItems(provider).length - 1);
         widget.onImagesChanged?.call(_localImages);
       }
     }
   }
 
   Future<void> _deleteImage(int index) async {
+    // Resolve against the rendered display list: the primary image (when
+    // shown) occupies index 0, so provider/list indexes are offset.
+    final items = _displayItems(context.read<ProductImageProvider>());
+    if (index < 0 || index >= items.length) return;
+    final item = items[index];
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Image'),
+        content: const Text('Are you sure you want to remove this image?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final imageProvider = context.read<ProductImageProvider>();
     if (widget.productId != null) {
-      // Existing product - delete from server
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Delete Image'),
-          content: const Text('Are you sure you want to remove this image?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-              ),
-              child: const Text('Delete', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        ),
-      );
+      final productProvider = context.read<ProductProvider>();
 
-      if (confirmed == true && mounted) {
-        final imageProvider = context.read<ProductImageProvider>();
-        final images = imageProvider.getImagesForProduct(widget.productId!);
-        if (index < images.length) {
-          await imageProvider.deleteProductImage(images[index].id, widget.productId!);
-          if (mounted) {
-            setState(() {
-              if (_selectedIndex >= images.length) {
-                _selectedIndex = (images.length - 1).clamp(0, double.infinity).toInt();
-              }
-            });
-          }
-        }
+      if (item.url != null) {
+        // Server image - delete the ProductImage record holding this URL
+        final record = imageProvider
+            .getImagesForProduct(widget.productId!)
+            .where((img) => img.imageUrl == item.url)
+            .firstOrNull;
+        if (record == null) return;
+        await imageProvider.deleteProductImage(record.id, widget.productId!);
+      } else {
+        // The display item was the product's primary picture — clear it on
+        // the product itself (there is no ProductImage record for it).
+        final product = productProvider.products
+            .where((p) => p.id == widget.productId)
+            .firstOrNull;
+        if (product == null) return;
+        await productProvider.updateProduct(
+          widget.productId!,
+          {'description': product.description, 'picture': ''},
+        );
       }
-    } else {
-      // New product - just remove from local list. The primary image (when
-      // displayed) occupies index 0 of the carousel, so shift accordingly.
-      final localIndex = index - (_hasPrimaryItem() ? 1 : 0);
-      if (localIndex < 0 || localIndex >= _localImages.length) return;
-      setState(() {
-        _localImages.removeAt(localIndex);
-        if (_selectedIndex >= _localImages.length + (_hasPrimaryItem() ? 1 : 0)) {
-          _selectedIndex = (_localImages.length - 1 + (_hasPrimaryItem() ? 1 : 0)).clamp(0, double.infinity).toInt();
-        }
-      });
 
-      // Notify parent
+      if (mounted) _goToPage(_displayItems(imageProvider).length - 1);
+    } else {
+      // New product - remove from the local picked list
+      final localIndex = _localImages.indexWhere((i) => i.path == item.file?.path);
+      if (localIndex < 0) return;
+      setState(() => _localImages.removeAt(localIndex));
       widget.onImagesChanged?.call(_localImages);
+
+      // Select the last remaining image (0 when everything was removed)
+      final remaining = _displayItems(imageProvider);
+      _goToPage(remaining.isNotEmpty ? remaining.length - 1 : 0);
     }
   }
 }

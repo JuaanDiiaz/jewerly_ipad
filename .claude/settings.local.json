@@ -29,7 +29,10 @@
       "Bash(mysql:*)",
       "Bash(flutter pub:*)",
       "Bash(flutter clean:*)",
-      "Bash(flutter build:*)"
+      "Bash(flutter build:*)",
+      "Bash(grep *)",
+      "PowerShell(flutter analyze *)",
+      "Bash(flutter test *)"
     ]
   }
 }
