@@ -274,6 +274,16 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   @override
+  void initState() {
+    super.initState();
+    // The fade controller is only advanced by navigation; with its default
+    // value of 0 the whole content pane renders at opacity 0 on app start —
+    // "empty screen, just the sidebar". Rest it at 1 so the first screen is
+    // visible; later navigations still re-run the fade.
+    _paneFade.value = 1.0;
+  }
+
+  @override
   void dispose() {
     _paneFade.dispose();
     super.dispose();

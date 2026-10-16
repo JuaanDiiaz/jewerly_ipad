@@ -436,7 +436,10 @@ class _SaleScreenState extends State<SaleScreen> {
       // CompleteSale decrements stock server-side — refetch so the product
       // grid and "N available" labels reflect it immediately.
       context.read<InventoryProvider>().fetchInventory();
-      Navigator.pop(context);
+      // Close every sheet this checkout was reached through: the compact flow
+      // stacks the summary sheet over the cart sheet, the expanded flow has
+      // just the summary sheet.
+      Navigator.of(context).popUntil((route) => route is! ModalBottomSheetRoute);
       ScaffoldMessenger.of(context).showSnackBar(
         successSnackBar('Sale completed successfully!'),
       );
@@ -965,6 +968,26 @@ class _SaleScreenState extends State<SaleScreen> {
     );
   }
 
+  /// Compact layout: the cart panel (warehouse selector, items, customer,
+  /// payment, salesperson, checkout) normally lives in the side rail, which
+  /// portrait phones/small tablets don't show — surface it as a tall bottom
+  /// sheet. Available even with an empty cart: the warehouse must be
+  /// selectable before the first item is added, and product availability is
+  /// warehouse-dependent.
+  void _showCartSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) => SizedBox(
+        height: MediaQuery.heightOf(sheetContext) * 0.85,
+        child: _buildCartPanel(),
+      ),
+    );
+  }
+
   Widget _buildBottomBar() {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -986,11 +1009,15 @@ class _SaleScreenState extends State<SaleScreen> {
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: salesProvider.cart.isEmpty ? null : _showSummary,
+                    // Always enabled in compact mode: the cart sheet is the
+                    // only way to reach the warehouse selector here (product
+                    // stock is warehouse-dependent), so an empty cart must
+                    // still open it.
+                    onPressed: _showCartSheet,
                     icon: const Icon(Icons.shopping_cart),
                     label: Text(
                       salesProvider.cart.isEmpty
-                          ? 'Cart Empty'
+                          ? 'Open cart - select warehouse'
                           : '${salesProvider.cart.length} items - ${formatCurrency(salesProvider.cartTotal)}',
                       overflow: TextOverflow.ellipsis,
                     ),

@@ -88,7 +88,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         themeMode: context.watch<ThemeProvider>().mode,
         home: child,
       ),
-      child: const HomeScreen(),
+      child: const SplashScreen(),
     );
   }
 }
