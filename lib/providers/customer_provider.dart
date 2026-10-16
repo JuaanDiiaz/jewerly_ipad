@@ -8,24 +8,78 @@ class CustomerProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
 
+  // Pagination state for the customers list
+  int _page = 1;
+  bool _hasMore = true;
+  bool _isLoadingMore = false;
+  String? _searchQuery;
+
   List<CustomerModel> get customers => _customers;
   bool get isLoading => _isLoading;
   String? get error => _error;
+  bool get hasMore => _hasMore;
+  bool get isLoadingMore => _isLoadingMore;
 
-  Future<void> fetchCustomers() async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
+  /// [loadMore] appends the next page to [customers]; a plain call resets
+  /// the list. [query] filters server-side and resets to page 1. [fetchAll]
+  /// walks every page in one call — for screens that need the whole
+  /// customer list (name lookups, selects), not for the paged list.
+  Future<void> fetchCustomers({
+    String? query,
+    bool loadMore = false,
+    bool fetchAll = false,
+  }) async {
+    if (!loadMore) {
+      _searchQuery = (query != null && query.trim().isNotEmpty)
+          ? query.trim()
+          : null;
+      _isLoading = true;
+      _error = null;
+      _page = 1;
+      notifyListeners();
+    } else {
+      if (_isLoadingMore || !_hasMore) return;
+      _isLoadingMore = true;
+      _error = null;
+      notifyListeners();
+    }
 
+    final keepGoing = fetchAll && !loadMore;
     try {
-      final response = await _apiService.get('/Customer');
-      _customers = (response as List)
-          .map((json) => CustomerModel.fromJson(json))
-          .toList();
+      var targetPage = loadMore ? _page + 1 : 1;
+      final fetched = <CustomerModel>[];
+      var totalCount = 0;
+      var lastPageSize = 50;
+      do {
+        final envelope = await _apiService.getPaged('/Customer', params: {
+          'page': '$targetPage',
+          if (_searchQuery != null) 'q': _searchQuery!,
+        });
+        fetched.addAll(envelope.data
+            .whereType<Map>()
+            .map((json) =>
+                CustomerModel.fromJson(Map<String, dynamic>.from(json)))
+            .toList());
+        totalCount = envelope.totalCount;
+        lastPageSize = envelope.pageSize > 0 ? envelope.pageSize : 50;
+        targetPage++;
+      } while (keepGoing &&
+          (targetPage - 1) * lastPageSize < totalCount &&
+          targetPage <= 25);
+
+      final page = targetPage - 1;
+      if (loadMore) {
+        _customers.addAll(fetched);
+      } else {
+        _customers = fetched;
+      }
+      _page = page;
+      _hasMore = !keepGoing && page * lastPageSize < totalCount;
     } catch (e) {
       _error = e.toString();
     } finally {
       _isLoading = false;
+      _isLoadingMore = false;
       notifyListeners();
     }
   }
@@ -48,7 +102,7 @@ class CustomerProvider extends ChangeNotifier {
       };
       final response = await _apiService.post('/Customer', body: backendData);
       if (response is Map<String, dynamic>) {
-        _customers.add(CustomerModel.fromJson(response));
+        _customers.insert(0, CustomerModel.fromJson(response));
       } else {
         // 2xx with empty body: it succeeded but returned no record — refetch
         await fetchCustomers();

@@ -123,7 +123,7 @@ class _PhysicalCountMainScreenState extends State<PhysicalCountMainScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<WarehouseProvider>().fetchWarehouses();
-      context.read<ProductProvider>().fetchProducts();
+      context.read<ProductProvider>().fetchProducts(fetchAll: true);
       context.read<InventoryProvider>().fetchInventory();
       _loadSavedSessions();
     });

@@ -10,6 +10,7 @@ import 'package:p_a_jewerly/models/customer_payment_model.dart';
 import 'package:p_a_jewerly/theme/app_theme.dart';
 import 'package:p_a_jewerly/utils/format.dart';
 import 'package:p_a_jewerly/widgets/loading_overlay.dart';
+import 'package:p_a_jewerly/widgets/paged_list_view.dart';
 
 class SalesListScreen extends StatefulWidget {
   const SalesListScreen({super.key});
@@ -32,7 +33,7 @@ class _SalesListScreenState extends State<SalesListScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       context.read<SalesProvider>().fetchSales();
-      context.read<CustomerProvider>().fetchCustomers();
+      context.read<CustomerProvider>().fetchCustomers(fetchAll: true);
       context.read<CustomerPaymentProvider>().fetchPayments();
       await context.read<PaymentMethodProvider>().fetchPaymentMethods();
       if (mounted) {
@@ -335,9 +336,13 @@ class _SalesListScreenState extends State<SalesListScreen> {
                   );
                 }
 
-                Widget list = ListView.builder(
+                Widget list = PagedListView(
                   padding: const EdgeInsets.all(16),
                   itemCount: filteredSales.length,
+                  hasMore: salesProvider.hasMore,
+                  isLoadingMore: salesProvider.isLoadingMore,
+                  onLoadMore: () => salesProvider.fetchSales(loadMore: true),
+                  onRefresh: () => salesProvider.fetchSales(),
                   itemBuilder: (context, index) {
                     final sale = filteredSales[index];
                     final total = (sale.total as num?)?.toDouble() ?? 0;
@@ -511,12 +516,7 @@ class _SalesListScreenState extends State<SalesListScreen> {
                 return Column(
                   children: [
                     if (errorBanner != null) errorBanner,
-                    Expanded(
-                      child: RefreshIndicator(
-                        onRefresh: () => salesProvider.fetchSales(),
-                        child: list,
-                      ),
-                    ),
+                    Expanded(child: list),
                   ],
                 );
               },

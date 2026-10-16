@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:p_a_jewerly/models/customer_model.dart';
@@ -5,6 +6,7 @@ import 'package:p_a_jewerly/providers/customer_provider.dart';
 import 'package:p_a_jewerly/theme/app_theme.dart';
 import 'package:p_a_jewerly/widgets/base_screen.dart';
 import 'package:p_a_jewerly/widgets/loading_overlay.dart';
+import 'package:p_a_jewerly/widgets/paged_list_view.dart';
 
 class CustomerMainScreen extends StatefulWidget {
   const CustomerMainScreen({super.key});
@@ -16,6 +18,7 @@ class CustomerMainScreen extends StatefulWidget {
 class _CustomerMainScreenState extends State<CustomerMainScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
+  Timer? _searchDebounce;
 
   @override
   void initState() {
@@ -27,6 +30,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -112,6 +116,8 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                             onPressed: () {
                               _searchController.clear();
                               setState(() => _searchQuery = '');
+                              _searchDebounce?.cancel();
+                              provider.fetchCustomers(query: '');
                             },
                           ),
                     filled: true,
@@ -120,7 +126,16 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  onChanged: (value) => setState(() => _searchQuery = value),
+                  // Server-side search (backend `q` param), debounced so
+                  // each keystroke doesn't fire a request.
+                  onChanged: (value) {
+                    setState(() => _searchQuery = value);
+                    _searchDebounce?.cancel();
+                    _searchDebounce = Timer(
+                      const Duration(milliseconds: 400),
+                      () => provider.fetchCustomers(query: value),
+                    );
+                  },
                 ),
               ),
               Expanded(
@@ -159,9 +174,13 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
         ),
       );
     }
-    return ListView.builder(
+    return PagedListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
       itemCount: customers.length,
+      hasMore: provider.hasMore,
+      isLoadingMore: provider.isLoadingMore,
+      onLoadMore: () => provider.fetchCustomers(loadMore: true),
+      onRefresh: () => provider.fetchCustomers(),
       itemBuilder: (context, index) {
         return _CustomerItem(
           key: ValueKey<int>(customers[index].id),

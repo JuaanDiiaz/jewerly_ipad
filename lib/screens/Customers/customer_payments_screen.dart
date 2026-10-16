@@ -26,7 +26,7 @@ class _CustomerPaymentsScreenState extends State<CustomerPaymentsScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<CustomerPaymentProvider>().fetchPayments();
-      context.read<CustomerProvider>().fetchCustomers();
+      context.read<CustomerProvider>().fetchCustomers(fetchAll: true);
     });
   }
 

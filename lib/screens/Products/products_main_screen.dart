@@ -9,6 +9,7 @@ import 'package:p_a_jewerly/theme/app_theme.dart';
 import 'package:p_a_jewerly/widgets/picked_image.dart';
 import 'package:p_a_jewerly/widgets/product_image_gallery.dart';
 import 'package:p_a_jewerly/widgets/loading_overlay.dart';
+import 'package:p_a_jewerly/widgets/paged_list_view.dart';
 
 class ProductsMainScreen extends StatefulWidget {
   const ProductsMainScreen({super.key});
@@ -456,21 +457,13 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
             return Column(
               children: [
                 ErrorBanner(message: provider.error!, onRetry: () => provider.fetchProducts()),
-                Expanded(
-                  child: RefreshIndicator(
-                    onRefresh: () => provider.fetchProducts(),
-                    child: _buildProductGrid(provider),
-                  ),
-                ),
+                Expanded(child: _buildProductGrid(provider)),
               ],
             );
           }
 
           // Grid View
-          return RefreshIndicator(
-            onRefresh: () => provider.fetchProducts(),
-            child: _buildProductGrid(provider),
-          );
+          return _buildProductGrid(provider);
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -484,7 +477,7 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
   }
 
   Widget _buildProductGrid(ProductProvider provider) {
-    return GridView.builder(
+    return PagedGridView(
             padding: const EdgeInsets.all(16),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 3,
@@ -493,6 +486,10 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
               mainAxisSpacing: 16,
             ),
             itemCount: provider.products.length,
+            hasMore: provider.hasMore,
+            isLoadingMore: provider.isLoadingMore,
+            onLoadMore: () => provider.fetchProducts(loadMore: true),
+            onRefresh: () => provider.fetchProducts(),
             itemBuilder: (context, index) {
               final product = provider.products[index];
               return _buildProductCard(product);

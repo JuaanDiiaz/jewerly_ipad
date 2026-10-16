@@ -26,7 +26,7 @@ class _PriceListDetailsScreenState extends State<PriceListDetailsScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<PriceListDetailProvider>().fetchPriceListDetails();
-      context.read<ProductProvider>().fetchProducts();
+      context.read<ProductProvider>().fetchProducts(fetchAll: true);
     });
   }
 

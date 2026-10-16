@@ -15,5 +15,6 @@ export 'sales_tax_provider.dart';
 export 'customer_payment_provider.dart';
 export 'product_category_provider.dart';
 export 'purchase_order_provider.dart';
+export 'reports_provider.dart';
 export 'api_config_provider.dart';
 export 'theme_provider.dart';

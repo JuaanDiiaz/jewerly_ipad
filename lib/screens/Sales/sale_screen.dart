@@ -36,8 +36,8 @@ class _SaleScreenState extends State<SaleScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ProductProvider>().fetchProducts();
-      context.read<CustomerProvider>().fetchCustomers();
+      context.read<ProductProvider>().fetchProducts(fetchAll: true);
+      context.read<CustomerProvider>().fetchCustomers(fetchAll: true);
       context.read<InventoryProvider>().fetchInventory();
       context.read<PriceListProvider>().fetchPriceLists();
       context.read<PriceListDetailProvider>().fetchPriceListDetails();

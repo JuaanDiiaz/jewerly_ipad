@@ -10,10 +10,17 @@ class InventoryProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
 
+  // Pagination state for the movements list
+  int _movementPage = 1;
+  bool _movementsHasMore = true;
+  bool _isLoadingMoreMovements = false;
+
   List<InventoryModel> get inventory => _inventory;
   List<InventoryMovementModel> get movements => _movements;
   bool get isLoading => _isLoading;
   String? get error => _error;
+  bool get movementsHasMore => _movementsHasMore;
+  bool get isLoadingMoreMovements => _isLoadingMoreMovements;
 
   Future<void> fetchInventory({String? warehouseId}) async {
     _isLoading = true;
@@ -36,27 +43,51 @@ class InventoryProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> fetchMovements({String? itemId, DateTime? fromDate, DateTime? toDate}) async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
+  /// [loadMore] appends the next page to [movements]; a plain call resets
+  /// the list to page 1.
+  Future<void> fetchMovements({
+    String? itemId,
+    DateTime? fromDate,
+    DateTime? toDate,
+    bool loadMore = false,
+  }) async {
+    if (loadMore) {
+      if (_isLoadingMoreMovements || !_movementsHasMore) return;
+      _isLoadingMoreMovements = true;
+      _error = null;
+      notifyListeners();
+    } else {
+      _isLoading = true;
+      _error = null;
+      _movementPage = 1;
+      notifyListeners();
+    }
+
+    final targetPage = loadMore ? _movementPage + 1 : 1;
 
     try {
-      final response = await _apiService.getWithParams(
-        '/InventoryMovement',
-        params: {
-          if (itemId != null) 'item_id': itemId,
-          if (fromDate != null) 'from_date': fromDate.toIso8601String(),
-          if (toDate != null) 'to_date': toDate.toIso8601String(),
-        },
-      );
-      _movements = (response as List)
-          .map((json) => InventoryMovementModel.fromJson(json))
+      final envelope = await _apiService.getPaged('/InventoryMovement', params: {
+        'page': '$targetPage',
+        if (itemId != null) 'item_id': itemId,
+        if (fromDate != null) 'from_date': fromDate.toIso8601String(),
+        if (toDate != null) 'to_date': toDate.toIso8601String(),
+      });
+      final fetched = envelope.data
+          .whereType<Map>()
+          .map((json) => InventoryMovementModel.fromJson(Map<String, dynamic>.from(json)))
           .toList();
+      if (loadMore) {
+        _movements.addAll(fetched);
+        _movementPage = targetPage;
+      } else {
+        _movements = fetched;
+      }
+      _movementsHasMore = envelope.hasMore;
     } catch (e) {
       _error = e.toString();
     } finally {
       _isLoading = false;
+      _isLoadingMoreMovements = false;
       notifyListeners();
     }
   }

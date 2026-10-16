@@ -33,6 +33,11 @@ class SalesProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
 
+  // Pagination state for the sales history list
+  int _page = 1;
+  bool _hasMore = true;
+  bool _isLoadingMore = false;
+
   List<SalesOrderHeaderModel> get sales => _sales;
   List<CartItem> get cart => _cart;
   int? get selectedCustomerId => _selectedCustomerId;
@@ -41,6 +46,8 @@ class SalesProvider extends ChangeNotifier {
   int? get selectedWarehouseId => _selectedWarehouseId;
   bool get isLoading => _isLoading;
   String? get error => _error;
+  bool get hasMore => _hasMore;
+  bool get isLoadingMore => _isLoadingMore;
 
   double get cartTotal => _cart.fold(0, (sum, item) => sum + item.total);
 
@@ -117,26 +124,64 @@ class SalesProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> fetchSales({DateTime? fromDate, DateTime? toDate}) async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
+  /// [loadMore] appends the next page to [sales]; a plain call resets the
+  /// list to page 1. [fetchAll] walks every page in one call — only for
+  /// screens that need the complete history (payment status lists).
+  Future<void> fetchSales({
+    DateTime? fromDate,
+    DateTime? toDate,
+    bool loadMore = false,
+    bool fetchAll = false,
+  }) async {
+    if (loadMore) {
+      if (_isLoadingMore || !_hasMore) return;
+      _isLoadingMore = true;
+      _error = null;
+      notifyListeners();
+    } else {
+      _isLoading = true;
+      _error = null;
+      _page = 1;
+      notifyListeners();
+    }
 
+    final keepGoing = fetchAll && !loadMore;
     try {
-      final response = await _apiService.getWithParams(
-        '/SalesOrderHeader',
-        params: {
+      var targetPage = loadMore ? _page + 1 : 1;
+      final fetched = <SalesOrderHeaderModel>[];
+      var totalCount = 0;
+      var lastPageSize = 50;
+      do {
+        final envelope = await _apiService.getPaged('/SalesOrderHeader', params: {
+          'page': '$targetPage',
           if (fromDate != null) 'from_date': fromDate.toIso8601String(),
           if (toDate != null) 'to_date': toDate.toIso8601String(),
-        },
-      );
-      _sales = (response as List)
-          .map((json) => SalesOrderHeaderModel.fromJson(json))
-          .toList();
+        });
+        fetched.addAll(envelope.data
+            .whereType<Map>()
+            .map((json) =>
+                SalesOrderHeaderModel.fromJson(Map<String, dynamic>.from(json)))
+            .toList());
+        totalCount = envelope.totalCount;
+        lastPageSize = envelope.pageSize > 0 ? envelope.pageSize : 50;
+        targetPage++;
+      } while (keepGoing &&
+          (targetPage - 1) * lastPageSize < totalCount &&
+          targetPage <= 25);
+
+      final page = targetPage - 1;
+      if (loadMore) {
+        _sales.addAll(fetched);
+      } else {
+        _sales = fetched;
+      }
+      _page = page;
+      _hasMore = !keepGoing && page * lastPageSize < totalCount;
     } catch (e) {
       _error = e.toString();
     } finally {
       _isLoading = false;
+      _isLoadingMore = false;
       notifyListeners();
     }
   }

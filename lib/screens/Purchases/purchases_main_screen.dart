@@ -43,7 +43,7 @@ class _PurchasesMainScreenState extends State<PurchasesMainScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<PurchaseOrderProvider>().fetchOrders();
       context.read<SupplierProvider>().fetchSuppliers();
-      context.read<ProductProvider>().fetchProducts();
+      context.read<ProductProvider>().fetchProducts(fetchAll: true);
       context.read<ProductImageProvider>().fetchAllImages();
       context.read<SupplierProductProvider>().fetchSupplierProducts();
     });

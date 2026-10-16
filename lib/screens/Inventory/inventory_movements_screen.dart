@@ -4,6 +4,7 @@ import 'package:p_a_jewerly/providers/inventory_provider.dart';
 import 'package:p_a_jewerly/providers/product_provider.dart';
 import 'package:p_a_jewerly/providers/warehouse_provider.dart';
 import 'package:p_a_jewerly/widgets/loading_overlay.dart';
+import 'package:p_a_jewerly/widgets/paged_list_view.dart';
 
 class InventoryMovementsScreen extends StatefulWidget {
   const InventoryMovementsScreen({super.key});
@@ -144,11 +145,17 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
                 ),
               ),
               Expanded(
-                child: RefreshIndicator(
-                  onRefresh: () => provider.fetchMovements(),
-                  child: ListView.builder(
+                child: PagedListView(
                   padding: const EdgeInsets.all(16),
                   itemCount: movements.length,
+                  hasMore: provider.movementsHasMore,
+                  isLoadingMore: provider.isLoadingMoreMovements,
+                  onLoadMore: () => provider.fetchMovements(
+                    fromDate: _fromDate,
+                    toDate: _toDate,
+                    loadMore: true,
+                  ),
+                  onRefresh: () => provider.fetchMovements(),
                   itemBuilder: (context, index) {
                     final movement = movements[index];
                     final isIN = movement.movementType == 'IN';
@@ -211,8 +218,7 @@ class _InventoryMovementsScreenState extends State<InventoryMovementsScreen> {
                         ),
                       ),
                     );
-                    },
-                  ),
+                  },
                 ),
               ),
             ],

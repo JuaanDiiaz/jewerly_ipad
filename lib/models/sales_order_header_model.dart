@@ -13,6 +13,7 @@ class SalesOrderHeaderModel {
   dynamic total;
   int? paymentMethodId;
   String? notes;
+  String? salespersonName;
 
   SalesOrderHeaderModel({
     required this.id,
@@ -21,6 +22,7 @@ class SalesOrderHeaderModel {
     this.total,
     this.paymentMethodId,
     this.notes,
+    this.salespersonName,
   });
 
   factory SalesOrderHeaderModel.fromJson(Map<String, dynamic> json) =>
@@ -31,6 +33,7 @@ class SalesOrderHeaderModel {
         total: json["total"],
         paymentMethodId: json["paymentMethodId"],
         notes: json["notes"],
+        salespersonName: json["salespersonName"],
       );
 
   Map<String, dynamic> toJson() => {
@@ -40,5 +43,6 @@ class SalesOrderHeaderModel {
         "total": total,
         "paymentMethodId": paymentMethodId,
         "notes": notes,
+        "salespersonName": salespersonName,
       };
 }

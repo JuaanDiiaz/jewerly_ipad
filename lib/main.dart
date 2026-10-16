@@ -76,6 +76,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ChangeNotifierProvider(create: (_) => CustomerPaymentProvider()),
         ChangeNotifierProvider(create: (_) => ProductCategoryProvider()),
         ChangeNotifierProvider(create: (_) => PurchaseOrderProvider()),
+        ChangeNotifierProvider(create: (_) => ReportsProvider()),
       ],
       // builder gives a context *below* the providers — watching MyApp's own
       // build context would throw ProviderNotFoundException.

@@ -30,8 +30,8 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      context.read<SalesProvider>().fetchSales();
-      context.read<CustomerProvider>().fetchCustomers();
+      context.read<SalesProvider>().fetchSales(fetchAll: true);
+      context.read<CustomerProvider>().fetchCustomers(fetchAll: true);
       context.read<CustomerPaymentProvider>().fetchPayments();
       await context.read<PaymentMethodProvider>().fetchPaymentMethods();
       // Ensure "Multiple Payments" method exists for handling multi-payment sales
@@ -290,7 +290,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                 final Widget? errorBanner = salesProvider.error != null
                     ? ErrorBanner(
                         message: salesProvider.error!,
-                        onRetry: () => salesProvider.fetchSales(),
+                        onRetry: () => salesProvider.fetchSales(fetchAll: true),
                       )
                     : null;
 
@@ -489,7 +489,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                     if (errorBanner != null) errorBanner,
                     Expanded(
                       child: RefreshIndicator(
-                        onRefresh: () => salesProvider.fetchSales(),
+                        onRefresh: () => salesProvider.fetchSales(fetchAll: true),
                         child: list,
                       ),
                     ),

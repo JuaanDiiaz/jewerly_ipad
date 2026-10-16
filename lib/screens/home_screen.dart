@@ -83,6 +83,11 @@ class _HomeScreenState extends State<HomeScreen> {
       screen: const ProductsMainScreen(),
     ),
     MenuItem(
+      title: 'Reports',
+      icon: Icons.assessment_outlined,
+      screen: const ReportsMainScreen(),
+    ),
+    MenuItem(
       title: 'Settings',
       icon: Icons.settings_outlined,
       screen: const SettingsScreen(),

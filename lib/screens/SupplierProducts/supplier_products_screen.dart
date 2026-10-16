@@ -29,7 +29,7 @@ class _SupplierProductsScreenState extends State<SupplierProductsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<SupplierProductProvider>().fetchSupplierProducts();
       context.read<SupplierProvider>().fetchSuppliers();
-      context.read<ProductProvider>().fetchProducts();
+      context.read<ProductProvider>().fetchProducts(fetchAll: true);
     });
   }
 

@@ -14,6 +14,12 @@ class ProductProvider extends ChangeNotifier {
   String? _error;
   int? _lastCreatedProductId;
 
+  // Pagination state for the products list
+  int _page = 1;
+  bool _hasMore = true;
+  bool _isLoadingMore = false;
+  String? _searchQuery;
+
   // Cloudinary config (same as gestor_tenis project)
   static const String _cloudinaryUrl =
       'https://api.cloudinary.com/v1_1/duw0j4d3p/image/upload?upload_preset=tenis_v1';
@@ -23,21 +29,72 @@ class ProductProvider extends ChangeNotifier {
   bool get isSaving => _isSaving;
   String? get error => _error;
   int? get lastCreatedProductId => _lastCreatedProductId;
+  bool get hasMore => _hasMore;
+  bool get isLoadingMore => _isLoadingMore;
 
-  Future<void> fetchProducts() async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
+  /// [loadMore] appends the next page to [products]; a plain call resets
+  /// the list. [query] filters server-side by description and resets to
+  /// page 1. [fetchAll] walks every page in one call — for catalog screens
+  /// that need the full product list (sale cart, purchases, price lists),
+  /// not for the paged grid.
+  Future<void> fetchProducts({
+    String? query,
+    bool loadMore = false,
+    bool fetchAll = false,
+  }) async {
+    if (!loadMore) {
+      _searchQuery = (query != null && query.trim().isNotEmpty)
+          ? query.trim()
+          : null;
+      _isLoading = true;
+      _error = null;
+      _page = 1;
+      notifyListeners();
+    } else {
+      if (_isLoadingMore || !_hasMore) return;
+      _isLoadingMore = true;
+      _error = null;
+      notifyListeners();
+    }
 
+    // Keep requesting while fetching-all (capped so a pathological server
+    // response can't loop forever).
+    final keepGoing = fetchAll && !loadMore;
     try {
-      final response = await _apiService.get('/Product');
-      _products = (response as List)
-          .map((json) => ProductModel.fromJson(json))
-          .toList();
+      var targetPage = loadMore ? _page + 1 : 1;
+      final fetched = <ProductModel>[];
+      var totalCount = 0;
+      var lastPageSize = 50;
+      do {
+        final envelope = await _apiService.getPaged('/Product', params: {
+          'page': '$targetPage',
+          if (_searchQuery != null) 'q': _searchQuery!,
+        });
+        fetched.addAll(envelope.data
+            .whereType<Map>()
+            .map((json) =>
+                ProductModel.fromJson(Map<String, dynamic>.from(json)))
+            .toList());
+        totalCount = envelope.totalCount;
+        lastPageSize = envelope.pageSize > 0 ? envelope.pageSize : 50;
+        targetPage++;
+      } while (keepGoing &&
+          (targetPage - 1) * lastPageSize < totalCount &&
+          targetPage <= 25);
+
+      final page = targetPage - 1;
+      if (loadMore) {
+        _products.addAll(fetched);
+      } else {
+        _products = fetched;
+      }
+      _page = page;
+      _hasMore = !keepGoing && page * lastPageSize < totalCount;
     } catch (e) {
       _error = e.toString();
     } finally {
       _isLoading = false;
+      _isLoadingMore = false;
       notifyListeners();
     }
   }
@@ -90,7 +147,7 @@ class ProductProvider extends ChangeNotifier {
       final response = await _apiService.post('/Product', body: backendData);
       if (response is Map<String, dynamic>) {
         final newProduct = ProductModel.fromJson(response);
-        _products.add(newProduct);
+        _products.insert(0, newProduct);
         _lastCreatedProductId = newProduct.id;
       } else {
         // 2xx with empty body: it succeeded but returned no record — refetch

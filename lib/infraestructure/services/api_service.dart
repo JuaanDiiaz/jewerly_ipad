@@ -71,6 +71,25 @@ class ApiService {
     return _send(http.get(uri, headers: headers));
   }
 
+  /// GET for paged endpoints returning the { data, page, pageSize, totalCount }
+  /// envelope. With ReferenceHandler.Preserve the data array arrives wrapped
+  /// as {"$id":"2","$values":[...]}, so it is unwrapped here.
+  Future<PagedEnvelope> getPaged(String endpoint,
+      {Map<String, String>? params, Map<String, String>? headers}) async {
+    final result = await getWithParams(endpoint, params: params, headers: headers);
+    final map = result as Map;
+    final dataField = map['data'];
+    final items = dataField is Map && dataField.containsKey('\$values')
+        ? (dataField['\$values'] as List)
+        : (dataField is List ? dataField : <dynamic>[]);
+    return PagedEnvelope(
+      data: items,
+      page: (map['page'] as num?)?.toInt() ?? 1,
+      pageSize: (map['pageSize'] as num?)?.toInt() ?? 50,
+      totalCount: (map['totalCount'] as num?)?.toInt() ?? 0,
+    );
+  }
+
   /// POST with form data
   Future<dynamic> postFormData(String endpoint,
       {Map<String, String>? headers, Map<String, dynamic>? formData}) async {
@@ -149,6 +168,21 @@ class ApiService {
           'Error ${response.statusCode}: ${bodyMessage ?? response.reasonPhrase ?? 'Unknown error'}');
     }
   }
+}
+
+/// Envelope returned by the paged API endpoints.
+class PagedEnvelope {
+  final List<dynamic> data;
+  final int page;
+  final int pageSize;
+  final int totalCount;
+  PagedEnvelope({
+    required this.data,
+    required this.page,
+    required this.pageSize,
+    required this.totalCount,
+  });
+  bool get hasMore => page * pageSize < totalCount;
 }
 
 /// Custom exceptions for better error handling
