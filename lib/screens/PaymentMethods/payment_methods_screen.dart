@@ -44,6 +44,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
                   : errorSnackBar(provider.error ?? 'Operation failed'),
             );
           }
+          return success;
         },
       ),
     );

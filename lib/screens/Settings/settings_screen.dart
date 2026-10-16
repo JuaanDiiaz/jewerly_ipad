@@ -13,8 +13,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool _notificationsEnabled = true;
-  String _selectedLanguage = 'English';
 
   @override
   Widget build(BuildContext context) {
@@ -78,24 +76,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ]),
                 const SizedBox(height: 24),
 
-                // Preferences
-                _buildSectionTitle('Preferences', icon: Icons.tune),
-                _buildSettingsCard([
-                  SwitchListTile(
-                    secondary: const Icon(Icons.notifications, color: AppTheme.primaryGold),
-                    title: const Text('Notifications'),
-                    subtitle: const Text('Enable push notifications'),
-                    value: _notificationsEnabled,
-                    onChanged: (value) {
-                      setState(() => _notificationsEnabled = value);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(value ? 'Notifications enabled' : 'Notifications disabled'), duration: const Duration(seconds: 1)),
-                      );
-                    },
-                  ),
-                ]),
-                const SizedBox(height: 24),
-
                 // Appearance
                 _buildSectionTitle('Appearance', icon: Icons.contrast),
                 _buildSettingsCard([
@@ -131,48 +111,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ]),
                 const SizedBox(height: 24),
 
-                // Language
-                _buildSectionTitle('Language', icon: Icons.language),
+                // Coming soon (no fake handlers: these tiles say what they are)
+                _buildSectionTitle('Coming soon', icon: Icons.schedule),
                 _buildSettingsCard([
-                  ListTile(
-                    leading: const Icon(Icons.language, color: AppTheme.primaryGold),
-                    title: const Text('Language'),
-                    subtitle: Text(_selectedLanguage),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => _showLanguageDialog(),
-                  ),
-                ]),
-                const SizedBox(height: 24),
-
-                // Data
-                _buildSectionTitle('Data', icon: Icons.storage),
-                _buildSettingsCard([
-                  _buildListTile(icon: Icons.download, title: 'Export Data', subtitle: 'Download your data', onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Export data - coming soon')));
-                  }),
+                  _buildListTile(icon: Icons.download, title: 'Export Data', subtitle: 'Download your data'),
                   const Divider(height: 1),
-                  _buildListTile(icon: Icons.upload, title: 'Import Data', subtitle: 'Restore from backup', onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Import data - coming soon')));
-                  }),
+                  _buildListTile(icon: Icons.upload, title: 'Import Data', subtitle: 'Restore from backup'),
                   const Divider(height: 1),
-                  _buildListTile(icon: Icons.delete_outline, title: 'Clear Cache', subtitle: 'Free up storage space', onTap: () => _showClearCacheDialog()),
+                  _buildListTile(icon: Icons.language, title: 'Language', subtitle: 'English (more languages coming)'),
                 ]),
                 const SizedBox(height: 24),
 
                 // Support
                 _buildSectionTitle('Support', icon: Icons.help_outline),
                 _buildSettingsCard([
-                  _buildListTile(icon: Icons.help_outline, title: 'Help Center', onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Help center - coming soon')));
-                  }),
-                  const Divider(height: 1),
-                  _buildListTile(icon: Icons.bug_report, title: 'Report a Bug', onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Report bug - coming soon')));
-                  }),
-                  const Divider(height: 1),
-                  _buildListTile(icon: Icons.email, title: 'Contact Support', subtitle: 'support@pajewerly.com', onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Contact support - coming soon')));
-                  }),
+                  _buildListTile(icon: Icons.email, title: 'Contact Support', subtitle: 'support@pajewerly.com'),
                 ]),
                 const SizedBox(height: 30),
                 Center(child: Text('P&A Jewerly App', style: TextStyle(color: AppTheme.mutedText, fontSize: 14))),
@@ -321,47 +274,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       onChanged: (value) {
         if (value != null) themeProvider.setMode(value);
       },
-    );
-  }
-
-  void _showLanguageDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Select Language'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: ['English', 'Spanish', 'French'].map((language) {
-            return RadioListTile<String>(title: Text(language), value: language, groupValue: _selectedLanguage, onChanged: (value) {
-              setState(() => _selectedLanguage = value!);
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Language changed'), duration: Duration(seconds: 1)));
-            });
-          }).toList(),
-        ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel'))],
-      ),
-    );
-  }
-
-  void _showClearCacheDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Clear Cache'),
-        content: const Text('Are you sure you want to clear the app cache? This will not delete your data.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cache cleared successfully')));
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Clear', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
     );
   }
 }

@@ -270,14 +270,18 @@ class ItemCard extends StatelessWidget {
   }
 }
 
-/// Reusable form dialog for CRUD operations
+/// Reusable form dialog for CRUD operations.
+///
+/// [onSave] runs the save and returns whether it succeeded. The dialog stays
+/// open with its buttons disabled until the future settles, and pops itself
+/// only on success — failed requests return false and keep the user's edits.
 class FormDialog extends StatefulWidget {
   final String title;
   final String labelText;
   final String? initialValue;
   final String? hintText;
   final String saveLabel;
-  final Function(String) onSave;
+  final Future<bool> Function(String) onSave;
 
   const FormDialog({
     super.key,
@@ -296,11 +300,26 @@ class FormDialog extends StatefulWidget {
 class _FormDialogState extends State<FormDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _controller;
+  bool _saving = false;
 
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.initialValue);
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate() || _saving) return;
+    setState(() => _saving = true);
+    final ok = await widget.onSave(_controller.text.trim());
+    if (!mounted) return;
+    if (ok) {
+      Navigator.pop(context);
+    } else {
+      // Failure feedback (if any) was shown by the save callback; keep the
+      // dialog open with the user's edits intact.
+      setState(() => _saving = false);
+    }
   }
 
   @override
@@ -357,22 +376,23 @@ class _FormDialogState extends State<FormDialog> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: _saving ? null : () => Navigator.pop(context),
                   child: const Text('Cancel'),
                 ),
                 const SizedBox(width: 12),
                 ElevatedButton(
-                  onPressed: () {
-                    if (_formKey.currentState!.validate()) {
-                      Navigator.pop(context);
-                      widget.onSave(_controller.text.trim());
-                    }
-                  },
+                  onPressed: _saving ? null : _submit,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryGold,
                     foregroundColor: AppTheme.textColor,
                   ),
-                  child: Text(widget.saveLabel),
+                  child: _saving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(widget.saveLabel),
                 ),
               ],
             ),

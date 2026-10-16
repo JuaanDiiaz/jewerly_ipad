@@ -204,15 +204,18 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
               );
 
               final success = await context.read<CustomerPaymentProvider>().createPayment(payment);
-              if (context.mounted) {
-                Navigator.pop(context);
+              if (!context.mounted) return;
+              if (!success) {
+                // Keep the dialog with the payment details intact on failure.
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(success ? 'Payment recorded' : 'Failed to record payment'),
-                    backgroundColor: success ? AppTheme.success : AppTheme.error,
-                  ),
+                  errorSnackBar('Failed to record payment'),
                 );
+                return;
               }
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                successSnackBar('Payment recorded'),
+              );
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryGold),
             child: const Text('Add Payment'),

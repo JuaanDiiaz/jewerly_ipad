@@ -44,6 +44,7 @@ class _WarehousesScreenState extends State<WarehousesScreen> {
                   : errorSnackBar(provider.error ?? 'Operation failed'),
             );
           }
+          return success;
         },
       ),
     );

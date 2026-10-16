@@ -28,6 +28,9 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
   // a blob URL that neither File() nor MultipartFile.fromPath can touch.
   Uint8List? _primaryImageBytes;
   List<XFile> _additionalImages = [];
+  // True while a create/update request is in flight — the form dialog stays
+  // open with its action buttons disabled until the result arrives.
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -51,6 +54,7 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
     _primaryImagePath = product?.picture;
     _primaryImageBytes = null;
     _additionalImages = [];
+    _isSaving = false;
 
     showDialog(
       context: context,
@@ -292,17 +296,27 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       TextButton(
-                        onPressed: () => Navigator.pop(context),
+                        // Cancel is disabled while saving so the dialog can't
+                        // be dismissed with the request in flight.
+                        onPressed: _isSaving ? null : () => Navigator.pop(context),
                         child: const Text('Cancel'),
                       ),
                       const SizedBox(width: 12),
                       ElevatedButton(
-                        onPressed: () => _saveProduct(setState),
+                        // The dialog stays open until the response arrives;
+                        // success (only) pops it from inside _saveProduct.
+                        onPressed: _isSaving ? null : () => _saveProduct(setState),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.primaryGold,
                           foregroundColor: AppTheme.textColor,
                         ),
-                        child: const Text('Save'),
+                        child: _isSaving
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Text('Save'),
                       ),
                     ],
                   ),
@@ -316,14 +330,15 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
   }
 
   Future<void> _saveProduct(StateSetter setState) async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate() || _isSaving) return;
 
     final provider = context.read<ProductProvider>();
     final imageProvider = context.read<ProductImageProvider>();
+    final wasNew = _editingId == null;
     bool success;
 
     setState(() {
-      // Show loading state
+      _isSaving = true;
     });
 
     final productData = {
@@ -332,7 +347,7 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
       if (_primaryImageBytes != null) 'pictureBytes': _primaryImageBytes,
     };
 
-    if (_editingId == null) {
+    if (wasNew) {
       // Create new product
       success = await provider.createProduct(productData);
 
@@ -351,21 +366,21 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
       success = await provider.updateProduct(_editingId!, productData);
     }
 
-    if (mounted) {
-      Navigator.pop(context);
+    if (!mounted) return;
+    if (!success) {
+      // Keep the dialog open with the user's edits intact on failure.
+      setState(() {
+        _isSaving = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            success
-                ? 'Product ${_editingId == null ? 'created' : 'updated'} successfully'
-                : provider.error ?? 'Operation failed',
-          ),
-          backgroundColor: success ? AppTheme.success : AppTheme.error,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
+        errorSnackBar(provider.error ?? 'Operation failed'),
       );
+      return;
     }
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      successSnackBar('Product ${wasNew ? 'created' : 'updated'} successfully'),
+    );
   }
 
   void _editProduct(dynamic product) {
@@ -478,10 +493,18 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
   }
 
   Widget _buildProductGrid(ProductProvider provider) {
+    // Column count follows the canvas: phone-portrait 2, tablet ~3-4, so
+    // iPad's wide layout isn't a stretched 3-up grid anymore.
+    final crossAxis = switch (MediaQuery.sizeOf(context).width) {
+      < 500 => 2,
+      < 1000 => 3,
+      < 1400 => 4,
+      _ => 5,
+    };
     return PagedGridView(
             padding: const EdgeInsets.all(16),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxis,
               childAspectRatio: 0.75,
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
@@ -627,20 +650,5 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
   }
 }
 
-SnackBar successSnackBar(String message) {
-  return SnackBar(
-    content: Text(message),
-    backgroundColor: AppTheme.success,
-    behavior: SnackBarBehavior.floating,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-  );
-}
-
-SnackBar errorSnackBar(String message) {
-  return SnackBar(
-    content: Text(message),
-    backgroundColor: AppTheme.error,
-    behavior: SnackBarBehavior.floating,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-  );
-}
+// Snack bar helpers live in lib/widgets/loading_overlay.dart (successSnackBar /
+// errorSnackBar) — they used to be duplicated here unused.

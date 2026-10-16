@@ -57,8 +57,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     ));
   }
 
-  Future<void> _saveCategory() async {
-    if (!_formKey.currentState!.validate()) return;
+  /// Saves and reports the outcome only — the dialog owns the saving state
+  /// and pops itself on success (see _CategoryDialog.onSave).
+  Future<bool> _saveCategory() async {
+    if (!_formKey.currentState!.validate()) return false;
 
     final category = CategoryModel(
       id: _editingId ?? 0,
@@ -69,22 +71,16 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     );
 
     final provider = context.read<CategoryProvider>();
-    bool success;
+    final success = _editingId == null
+        ? await provider.createCategory(category)
+        : await provider.updateCategory(category);
 
-    if (_editingId == null) {
-      success = await provider.createCategory(category);
-    } else {
-      success = await provider.updateCategory(category);
-    }
-
-    if (mounted) {
-      Navigator.pop(context);
+    if (!success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        success
-            ? successSnackBar('Category ${_editingId == null ? 'created' : 'updated'}')
-            : errorSnackBar(provider.error ?? 'Operation failed'),
+        errorSnackBar(provider.error ?? 'Operation failed'),
       );
     }
+    return success;
   }
 
   void _confirmDelete(int id, String name) async {
@@ -194,14 +190,18 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   }
 }
 
-class _CategoryDialog extends StatelessWidget {
+class _CategoryDialog extends StatefulWidget {
   final GlobalKey<FormState> formKey;
   final TextEditingController descriptionController;
   final TextEditingController categoryNumberController;
   final TextEditingController extraInfoController;
   final int parentCategoryId;
   final int? editingId;
-  final VoidCallback onSave;
+
+  /// Runs the save and reports the outcome. The dialog stays open (with its
+  /// buttons disabled) until the future settles, and pops itself on success —
+  /// failed requests return [false] and keep the user's edits on screen.
+  final Future<bool> Function() onSave;
   final List<CategoryModel> allCategories;
   // Selection is reported to the owner screen (which outlives rebuilds) —
   // storing it in a build-local previously made dropdown choices vanish.
@@ -220,40 +220,65 @@ class _CategoryDialog extends StatelessWidget {
   });
 
   @override
+  State<_CategoryDialog> createState() => _CategoryDialogState();
+}
+
+class _CategoryDialogState extends State<_CategoryDialog> {
+  bool _saving = false;
+
+  Future<void> _save() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    final ok = await widget.onSave();
+    if (!mounted) return;
+    if (ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        successSnackBar(
+            'Category ${widget.editingId == null ? 'created' : 'updated'}'),
+      );
+      Navigator.pop(context);
+    } else {
+      // Snackbar for the failure was shown by the save callback.
+      setState(() => _saving = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final widget = this.widget;
     return AlertDialog(
-      title: Text(editingId == null ? 'Add Category' : 'Edit Category'),
+      title: Text(widget.editingId == null ? 'Add Category' : 'Edit Category'),
       content: SingleChildScrollView(
         child: Form(
-          key: formKey,
+          key: widget.formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextFormField(
-                controller: descriptionController,
+                controller: widget.descriptionController,
                 decoration: const InputDecoration(labelText: 'Description', border: OutlineInputBorder()),
                 validator: (value) => value == null || value.trim().isEmpty ? 'Required' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
-                controller: categoryNumberController,
+                controller: widget.categoryNumberController,
                 decoration: const InputDecoration(labelText: 'Category Number', border: OutlineInputBorder()),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<int>(
-                value: parentCategoryId,
+                value: widget.parentCategoryId,
                 decoration: const InputDecoration(labelText: 'Parent Category', border: OutlineInputBorder()),
                 items: [
                   const DropdownMenuItem(value: 0, child: Text('None (Root)')),
-                  ...allCategories.where((c) => c.id != editingId).map((c) {
+                  ...widget.allCategories.where((c) => c.id != widget.editingId).map((c) {
                     return DropdownMenuItem(value: c.id, child: Text(c.description ?? 'Category ${c.id}'));
                   }),
                 ],
-                onChanged: (value) => onParentChanged(value ?? 0),
+                onChanged: (value) => widget.onParentChanged(value ?? 0),
               ),
               const SizedBox(height: 12),
               TextFormField(
-                controller: extraInfoController,
+                controller: widget.extraInfoController,
                 decoration: const InputDecoration(labelText: 'Extra Information', border: OutlineInputBorder()),
                 maxLines: 2,
               ),
@@ -262,8 +287,19 @@ class _CategoryDialog extends StatelessWidget {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        ElevatedButton(onPressed: onSave, child: const Text('Save')),
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _saving ? null : _save,
+          child: _saving
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : const Text('Save'),
+        ),
       ],
     );
   }

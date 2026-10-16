@@ -1,1 +1,2 @@
-export 'package:p_a_jewerly/components/bottom_bar_screen.dart';
+// The sidebar lives in lib/widgets/modern_sidebar.dart. BottomBarScreen (the
+// old navigation, replaced by the sidebar) was removed as dead code.

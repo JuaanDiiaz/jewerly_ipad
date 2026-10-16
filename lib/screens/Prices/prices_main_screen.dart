@@ -186,13 +186,28 @@ class _PricesMainScreenState extends State<PricesMainScreen> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              context.read<PriceListDetailProvider>().deletePriceListDetail(id);
+              _deleteDetail(id);
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
             child: const Text('Delete', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _deleteDetail(int id) async {
+    // The confirm dialog closed before the await; the messenger capture and
+    // mounted check keep the snackbar on the right target across the gap.
+    final messenger = ScaffoldMessenger.of(context);
+    final success = await context
+        .read<PriceListDetailProvider>()
+        .deletePriceListDetail(id);
+    if (!mounted) return;
+    messenger.showSnackBar(
+      success
+          ? successSnackBar('Price list entry deleted')
+          : errorSnackBar('Delete failed'),
     );
   }
 }
