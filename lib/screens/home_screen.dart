@@ -282,7 +282,7 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 800;
+    final isTablet = screenWidth > AppBreakpoints.wideChromeAt;
     // Watching the theme mode guarantees this builder re-runs (and the screen
     // keys below change) whenever System/Light/Dark flips — even while the
     // mode comes from the platform in System mode.

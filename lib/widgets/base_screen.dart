@@ -333,7 +333,9 @@ class _FormDialogState extends State<FormDialog> {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Container(
-        width: 400,
+        // Clamped so phones in portrait (≈360 logical px) keep the dialog
+        // fully on-screen instead of clipping the 400px preferred width.
+        width: AppBreakpoints.dialogWidth(context, 400),
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -345,9 +347,13 @@ class _FormDialogState extends State<FormDialog> {
                 children: [
                   Icon(Icons.edit_outlined, color: AppTheme.primaryGold, size: 24),
                   const SizedBox(width: 12),
-                  Text(
-                    widget.title,
-                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                  // Flexed so long titles wrap on phone-width dialogs
+                  // instead of overflowing the fixed-width dialog body.
+                  Expanded(
+                    child: Text(
+                      widget.title,
+                      style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                    ),
                   ),
                 ],
               ),

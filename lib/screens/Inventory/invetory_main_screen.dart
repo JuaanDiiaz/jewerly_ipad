@@ -67,7 +67,7 @@ class _InventoryMainScreenState extends State<InventoryMainScreen> {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Container(
-        width: 400,
+        width: AppBreakpoints.dialogWidth(context, 400),
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           color: AppTheme.surfaceColor,

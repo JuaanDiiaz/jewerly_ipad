@@ -1,4 +1,47 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+
+/// Material 3 window size classes, the app's single source of truth for
+/// responsive decisions. Screens ask [AppBreakpoints.of] instead of inventing
+/// their own width thresholds, so phones (≤600), small tablets (600–1024) and
+/// full-size tablets/desktops (>1024) get consistent layouts everywhere.
+enum WindowSize { compact, medium, expanded }
+
+class AppBreakpoints {
+  AppBreakpoints._();
+
+  static const double compactMax = 600;
+  static const double mediumMax = 1024;
+
+  /// Width above which the persistent sidebar chrome is shown instead of the
+  /// drawer (HomeScreen). Kept coarser than the window classes: even a small
+  /// tablet in landscape has room for the sidebar, but a phone in any
+  /// orientation does not.
+  static const double wideChromeAt = 800;
+
+  /// Width above which the POS screen shows its cart as a side rail instead
+  /// of the bottom bar — the rail needs more room than the sidebar switch
+  /// (search field + grid + rail must all stay usable).
+  static const double posRailAt = 900;
+
+  static WindowSize classify(double width) {
+    if (width > mediumMax) return WindowSize.expanded;
+    if (width > compactMax) return WindowSize.medium;
+    return WindowSize.compact;
+  }
+
+  static WindowSize of(BuildContext context) =>
+      classify(MediaQuery.sizeOf(context).width);
+
+  /// Clamps a preferred dialog width to the window so dialogs never run off
+  /// small screens (a phone in portrait is ~360 logical px wide, narrower
+  /// than most of the app's fixed 400–500px dialogs).
+  static double dialogWidth(BuildContext context, double preferred) {
+    final screen = MediaQuery.sizeOf(context).width;
+    return math.min(preferred, screen - 32);
+  }
+}
 
 class AppTheme {
   // Elegant Luxury Color Palette

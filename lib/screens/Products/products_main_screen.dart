@@ -70,8 +70,12 @@ class _ProductsMainScreenState extends State<ProductsMainScreen> {
             borderRadius: BorderRadius.circular(20),
           ),
           child: Container(
-            width: 500,
-            constraints: const BoxConstraints(maxHeight: 700),
+            width: AppBreakpoints.dialogWidth(context, 500),
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height < 748
+                  ? MediaQuery.sizeOf(context).height - 48
+                  : 700,
+            ),
             decoration: BoxDecoration(
               color: AppTheme.surfaceColor,
               borderRadius: BorderRadius.circular(20),

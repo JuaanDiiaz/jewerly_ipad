@@ -459,7 +459,7 @@ class _SaleScreenState extends State<SaleScreen> {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 900;
+    final isTablet = screenWidth > AppBreakpoints.posRailAt;
 
     // Calculate grid columns based on available space
     // Products get ~65% of screen, cart sidebar gets ~35%
